@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
-export const db = fsAdmin('demo-starter-app');
+export const db = fsAdmin('demo-sandbox-app');
 export const APP = '/app/?emulator';
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
