@@ -14,7 +14,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 let bump = 0;
 
 const env = {
-  FIREBASE_PROJECT: 'demo-starter-app', EMULATOR: '1',
+  FIREBASE_PROJECT: 'demo-sandbox-app', EMULATOR: '1',
   AUTH_EMULATOR: process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099',
   FIRESTORE_EMULATOR: process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080',
   ASSETS: { async fetch(req) {

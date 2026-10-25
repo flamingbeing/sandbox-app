@@ -38,7 +38,7 @@ export function sdk() {
   fb = (async () => {
     const [app, A, F] = await Promise.all([import(SDK + 'firebase-app.js'), import(SDK + 'firebase-auth.js'), import(SDK + 'firebase-firestore.js')]);
     // the emulator project is always demo-<name> (tools/fill.mjs keeps it in step with the tests), never the live one
-    const cfg = emulator ? { apiKey: 'demo-key', projectId: 'demo-starter-app', authDomain: 'localhost', appId: 'demo' }
+    const cfg = emulator ? { apiKey: 'demo-key', projectId: 'demo-sandbox-app', authDomain: 'localhost', appId: 'demo' }
       : { ...firebaseConfig, authDomain: firebaseConfig.authDomain || APP.host };
     const a = app.initializeApp(cfg);
     const auth = A.getAuth(a);
