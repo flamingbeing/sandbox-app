@@ -63,7 +63,7 @@ jobs:
           devkit-dir: .devkit
       - name: Rules in the emulator
         working-directory: app
-        run: npx -y firebase-tools@13.29.1 emulators:exec --only firestore --project demo-starter-app "node --test test/rules.test.mjs"
+        run: npx -y firebase-tools@13.29.1 emulators:exec --only firestore --project demo-sandbox-app "node --test test/rules.test.mjs"
 
   e2e:
     runs-on: ubuntu-24.04
@@ -102,7 +102,7 @@ jobs:
           cd "$RUNNER_TEMP/new-app"
           node tools/fill.mjs --name fill-check --host fill-check.example.net --kit nuhs --project fill-check-app --commit "$GITHUB_SHA"
           node tools/fill.mjs --name fill-check --host fill-check.example.net --kit nuhs --project fill-check-app --commit "$GITHUB_SHA" --check
-          ! grep -rIl --exclude-dir=node_modules --exclude-dir=.devkit --exclude='*.log' --exclude=fill.mjs --exclude=fill.test.mjs --exclude=claims.js --exclude=custom-token.js -e 'starter-app' -e 'app\.example\.com' .
+          ! grep -rIl --exclude-dir=node_modules --exclude-dir=.devkit --exclude='*.log' --exclude=fill.mjs --exclude=fill.test.mjs --exclude=claims.js --exclude=custom-token.js -e 'sandbox-app' -e 'app\.example\.com' .
       - name: Checks on the filled app
         working-directory: ${{ runner.temp }}/new-app
         run: |

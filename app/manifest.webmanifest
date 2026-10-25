@@ -1,6 +1,6 @@
 {
-  "name": "Starter app",
-  "short_name": "Starter app",
+  "name": "Sandbox app",
+  "short_name": "Sandbox app",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -72,7 +72,7 @@ test('sign-out waits for unsent saves, then wipes the phone', async ({ phone }) 
   await synced(page);
   await page.click('#sign-out');
   await expect(page.locator('#signed-out')).toBeVisible();
-  const left = await page.evaluate(async () => (await indexedDB.databases()).map(d => d.name).filter(n => /starter-app/.test(n || '')));
+  const left = await page.evaluate(async () => (await indexedDB.databases()).map(d => d.name).filter(n => /sandbox-app/.test(n || '')));
   for (const name of left) {
     const records = await page.evaluate(n => new Promise(res => {
       const r = indexedDB.open(n);
