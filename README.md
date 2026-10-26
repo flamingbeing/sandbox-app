@@ -175,7 +175,7 @@ git checkout -b refresh/starter-<sha>
 git ls-files -z | xargs -0 rm -f            # clear the old files, keep .git
 (cd ../app-starter && git archive HEAD) | tar -x
 node tools/fill.mjs --name sandbox-app --host sandbox-app.flamingbeing.com --kit homedesign \
-  --project sandbox-app-app --title "Sandbox app" --commit <sha>
+  --project sandbox-app-app --title "Sandbox app" --accent "#3a6390" --commit <sha>
 npm ci && node tools/sw-files.mjs app       # then the tests (Tests, above)
 ```
 
