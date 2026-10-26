@@ -72,6 +72,11 @@ the repo secrets for the deploy (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 deploy (`FIREBASE_PROJECT`, `WIF_PROVIDER`, `RULES_DEPLOYER`), Google sign-in switched on in the Firebase console, the
 app's host as an authorised domain, and a first `members/{uid}` doc with role `admin`.
 
+**Live smoke test**: `.github/workflows/live-smoke.yml` (app-devkit's `live-smoke`) signs a test user in on the deployed
+site, by hand and after each Deploy, and runs `e2e-live/signin.live.spec.mjs` (signed in, no data, no console errors).
+It needs the repo secrets `<NAME>_TEST_EMAIL` and `<NAME>_TEST_PASSWORD` (the name in capitals, hyphens as `_`; fill
+renames them) and skips with a notice until they exist. The test user is in no app data.
+
 `.starter.json` records the template version and commit the app started from; app-devkit's drift report compares an
 app with the template and never changes it.
 
@@ -170,10 +175,9 @@ git checkout -b refresh/starter-<sha>
 git ls-files -z | xargs -0 rm -f            # clear the old files, keep .git
 (cd ../app-starter && git archive HEAD) | tar -x
 node tools/fill.mjs --name sandbox-app --host sandbox-app.flamingbeing.com --kit homedesign \
-  --project sandbox-app-app --title "Sandbox app" --web-config <web.json> --commit <sha>
+  --project sandbox-app-app --title "Sandbox app" --commit <sha>
 npm ci && node tools/sw-files.mjs app       # then the tests (Tests, above)
 ```
 
-`<web.json>` is the web config already in git history (`app/config.js` before the refresh) or `firebase apps:sdkconfig
-WEB`. Open a PR, merge on green; the deploy workflow ships it. A new starter release that adds a Worker binding needs it
+Save `app/src/config.js` before clearing and copy it back before fill (fill keeps its web config), or pass `--web-config <web.json>` (`firebase apps:sdkconfig WEB`). Open a PR, merge on green; the deploy workflow ships it. A new starter release that adds a Worker binding needs it
 created first (the files bucket: `npx wrangler r2 bucket create sandbox-app-files`).
