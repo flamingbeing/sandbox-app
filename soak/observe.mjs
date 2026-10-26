@@ -95,15 +95,17 @@ export async function snapshot(page, label) {
       try {
         const stores = {};
         // One transaction per database; wait for completion, not just getAll success.
-        const names = [...database.objectStoreNames].filter(n => ['items', 'changes'].includes(n));
+        const names = [...database.objectStoreNames].filter(n => ['items', 'changes', 'meta'].includes(n));
         if (names.length) await new Promise((resolve, reject) => {
           const tx = database.transaction(names, 'readonly');
           tx.oncomplete = resolve; tx.onabort = tx.onerror = () => reject(tx.error);
           for (const n of names) {
             const request = tx.objectStore(n).getAll();
-            request.onsuccess = () => { stores[n] = request.result.map(row => n === 'changes'
+            request.onsuccess = () => { stores[n] = request.result.map(row => n === 'meta'
+              ? { coll: row.coll, gone: row.gone, later: row.later, anchor: row.anchor, syncAt: row.syncAt, fullAt: row.fullAt }
+              : n === 'changes'
               ? { key: row.key, record: row.record, base: row.base, state: row.state, accepted: row.accepted }
-              : { id: row.id, text: row.text, _deleted: row._deleted }); };
+              : { id: row.id, text: row.text, _deleted: row._deleted, updatedAt: row.updatedAt, serverAt: row.serverAt }); };
           }
         });
         databases.push({ name, stores });
