@@ -93,7 +93,7 @@ still assert. Chip status is recorded separately (`SOAK_STATUS=observe`); passes
 Scenario cleanup closes clients, then deletes only its own made-up item/bin records. Logs, traces and JSON reports
 remain in TEMP, with emulator/server logs capped at 1 MiB and continuously drained.
 
-Primary A/B totals: pending completion of the isolated reruns. Authoritative reports are `round3-boundary-<seed>.json`.
+Checkpoint: A seeds 1, 4 and 6 each passed 10/10 focused reruns. A seeds 7, 8, 10 and B seed 2 are pending. Primary reports are `round3-boundary-1.json`, `round3-boundary-4.json` and `round3-boundary-<seed>-final.json` for the continuation.
 Previously completed controls are retained, not rerun: natural quick adds 10/10 pass; acknowledged offline CRUD
 10/10 pass; immediate offline delete/reload 10/10 pass; slow unresolved delete/reload 10/10 pass.
 The UI minimal regression failed 10/10; the independent real-engine tombstone model failed 10/10.
