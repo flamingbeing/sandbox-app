@@ -93,10 +93,23 @@ still assert. Chip status is recorded separately (`SOAK_STATUS=observe`); passes
 Scenario cleanup closes clients, then deletes only its own made-up item/bin records. Logs, traces and JSON reports
 remain in TEMP, with emulator/server logs capped at 1 MiB and continuously drained.
 
-Checkpoint: A seeds 1, 4 and 6 each passed 10/10 focused reruns. A seeds 7, 8, 10 and B seed 2 are pending. Primary reports are `round3-boundary-1.json`, `round3-boundary-4.json` and `round3-boundary-<seed>-final.json` for the continuation.
+A completed 60/60 focused reruns: seeds 1, 4, 6, 7, 8 and 10 each passed 10/10. B seed 2 is pending. Primary reports are `round3-boundary-1.json`, `round3-boundary-4.json` and `round3-boundary-<seed>-final.json` for the continuation.
 Previously completed controls are retained, not rerun: natural quick adds 10/10 pass; acknowledged offline CRUD
 10/10 pass; immediate offline delete/reload 10/10 pass; slow unresolved delete/reload 10/10 pass.
 The UI minimal regression failed 10/10; the independent real-engine tombstone model failed 10/10.
+
+### Save and storage boundary evidence
+
+Across the 60 A cases there were 120 pre-reload snapshots. The latest observed item-save call had happened but
+had not resolved in all 120. Its requested version was already in the outbox in 113 snapshots; in seven it was
+absent from both outbox and item store at that instant. All 60 cases nevertheless reached exact backend/UI equality.
+This is a pre-acceptance timing boundary, not evidence of an acknowledged save disappearing. The read can let a
+later enqueue finish before navigation; the seven absent snapshots must not be described as confirmed data loss.
+
+The completed B controls show a delete call plus a durable tombstone before reload in all 20 cases: the offline
+variant had resolved (10/10), while the slow-network variant was still unresolved (10/10). All 20 deletions reached
+the backend and remained absent on the phones. C instead has a resolved/accepted first save but no second call
+or queue entry, because the newer required input was cleared before the second click.
 
 ### Confirmed bug C: an earlier add clears a newer draft
 
