@@ -70,8 +70,8 @@ Use the installed package as the browser's app-sync source, rather than relying 
 
 ```sh
 . soak/env.sh
-export SOAK_TRACE=1 SYNC_DIR="$PWD/node_modules/app-sync"
-SOAK_OUTPUT=triage-chaos SOAK_SEEDS=1,2,4,6,7,8,10 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium --repeat-each=10 --workers=3
+export SOAK_TRACE=1 SOAK_GUARD_QUICK_ADD=1 SYNC_DIR="$PWD/node_modules/app-sync"
+SOAK_OUTPUT=triage-chaos SOAK_SEEDS=1,2,4,6,7,8,10 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium --repeat-each=10 --workers=4
 # Minimal intentionally failing regression for the next-draft clearing bug:
 bash soak/run.sh minimal 1
 ```
@@ -91,3 +91,12 @@ the application submit handler preserves a newer draft. Keep this result separat
 `SOAK_REUSE_SERVER=1` reuses only a server this job already started. For a parallel probe against that server,
 `PW_NO_EMULATOR=1` also prevents global setup from clearing the running suite's demo data. Use distinct SOAK_OUTPUT
 names. Do not enable reuse against a live service.
+
+For independent A/B triage, `SOAK_GUARD_QUICK_ADD=1` waits for earlier submit promises before filling the extra
+close/reopen draft. It prevents the confirmed C race from blocking these cases; it does not wait before the normal
+immediate reload. Natural quick-add and minimal C probes run without that guard.
+`SOAK_SNAPSHOT=0` disables pre-reload/close reads for a paired timing control while retaining call/input traces
+and failure-time snapshots. `SOAK_SEEDS=4 SOAK_STEPS=2` targets seed 4's originally reported step-1 failure;
+it is prefix coverage, not a complete 25-step soak.
+`delete-boundary.spec.mjs` has offline and slow-online variants. The slow variant reloads while the save promise
+is unresolved; the pre-reload snapshot distinguishes durable pending tombstones from unqueued delete intentions.

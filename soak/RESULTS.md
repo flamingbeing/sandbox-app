@@ -77,8 +77,8 @@ Import map and generated service-worker shell use 1.3.11. Chromium only, demo em
 No engine, application behavior, Worker source, or live service changes. The test server adjusts the inline-map CSP hash.
 
 Completed so far: natural quick adds 10/10 pass; acknowledged offline CRUD 10/10 pass;
-immediate-delete/reload with pre-reload IndexedDB read 10/10 pass; minimal next-draft regression 0/10 pass.
-The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is running with three workers and full-length blips.
+offline immediate-delete/reload 10/10 pass; slow immediate-delete/reload 10/10 pass; minimal next-draft regression 0/10 pass.
+The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is running with four workers and full-length blips. It guards only the extra rapid add, so C does not block A/B at that step.
 The original one-worker seed-4 prefix is also being checked without a pre-reload read to test for observer effects.
 
 Confirmed bug: `app/src/screens/list.js`, `listScreen`, async `submit` listener (lines 55–61).
@@ -92,4 +92,9 @@ These probes cannot alone establish that an original reload race has vanished. S
 add are class C, not retained-delete reproductions. Final chaos totals and any blocked cases will be recorded here.
 
 Excluded setup attempts: the first ten quick-add attempts had the outdated import-map CSP hash; interrupted early
-chaos/minimal batches and the startup attempt encountering an occupied test-server port are not final result counts.
+chaos/minimal batches (including the unguarded A/B attempt blocked by C) and the startup attempt encountering an occupied test-server port are not final result counts.
+
+The slow delete probe had a delete save call, no resolved delete promise, and a durable tombstone in IndexedDB
+in all ten pre-reload snapshots. Every deletion then reached the backend and stayed absent in the UI.
+The earlier unguarded seed-4 observation also exposed the same UI bug during ordinary adds: completion of an
+older add cleared the later draft, which had zero save calls and zero queue entries. This is not engine loss.
