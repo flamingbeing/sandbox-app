@@ -46,7 +46,7 @@ async function ready(url) {
 try {
   for (const seed of (process.env.SOAK_SEEDS || '1,4,6,7,8,10,2').split(',').map(Number)) {
     if (fs.existsSync(path.join(temp, 'round3-pause'))) break;
-    const name = `round3-boundary-${seed}`;
+    const name = `round3-boundary-${seed}${process.env.SOAK_BATCH_TAG ? '-' + process.env.SOAK_BATCH_TAG : ''}`;
     const env = { ...process.env, SOAK_OUTPUT: name, SOAK_SEEDS: String(seed), SOAK_FOCUS: '1',
       SOAK_TIME_SCALE: process.env.SOAK_TIME_SCALE || '0.01', SOAK_TRACE: '1', SOAK_GUARD_QUICK_ADD: '1',
       SOAK_STATUS: 'observe', SOAK_CLEANUP: '1', SOAK_REUSE_SERVER: '1',
@@ -55,7 +55,6 @@ try {
       SYNC_DIR: path.join(root, 'node_modules/app-sync'),
     };
     delete env.PW_NO_EMULATOR;
-    delete env.SOAK_REPEAT_OFFSET;
     const emulators = start('node', ['soak/emulators.mjs'], `${name}-emulators`, env);
     let server, tests;
     try {
