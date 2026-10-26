@@ -91,7 +91,7 @@ for (const seed of SEEDS) {
           items.delete(old); everDeleted.add(old);
         }
       } catch (e) {
-        if (process.env.SOAK_TRACE) await snapshot(page, `seed=${seed} step=${step} failed-operation`);
+        if (process.env.SOAK_TRACE && process.env.SOAK_SNAPSHOT !== '0') await snapshot(page, `seed=${seed} step=${step} failed-operation`);
         // a step that failed before its last click took no effect; one that failed after cannot be told apart here, so fail loudly
         await testInfo.attach('failed-operation-state', { contentType: 'application/json', body: JSON.stringify({
           seed, step, phone: i, expected: mine.map(m => [...m.keys()]),
@@ -115,7 +115,7 @@ for (const seed of SEEDS) {
         await page.context().setOffline(false);
         if (sessions[i]) await sessions[i].send('Network.emulateNetworkConditions', sessions[i].soakConditions);
       } else if (c < 0.25) {                   // reload straight after a save (mid-save)
-        if (process.env.SOAK_TRACE) await snapshot(page, `seed=${seed} step=${step} before-reload`);
+        if (process.env.SOAK_TRACE && process.env.SOAK_SNAPSHOT !== '0') await snapshot(page, `seed=${seed} step=${step} before-reload`);
         await page.reload({ waitUntil: 'commit' });
         await expect(page.locator('#list-view')).toBeVisible({ timeout: 180_000 });
       } else if (c < 0.32) {                   // close and reopen while saves may be unsent
@@ -127,7 +127,7 @@ for (const seed of SEEDS) {
         await expect(page.locator('#items')).toContainText(pending);
         await expect.poll(() => page.evaluate(() => window.starter.status)).not.toBe('synced');
         mine[i].set(pending, true); everAdded.add(pending);
-        if (process.env.SOAK_TRACE) await snapshot(page, `seed=${seed} step=${step} before-close`);
+        if (process.env.SOAK_TRACE && process.env.SOAK_SNAPSHOT !== '0') await snapshot(page, `seed=${seed} step=${step} before-close`);
         const again = await page.context().newPage();
         await page.close();
         pages[i] = again;
@@ -149,7 +149,7 @@ for (const seed of SEEDS) {
       await expect.poll(() => p.evaluate(() => window.starter.status), { timeout: 120_000, message: 'status chip ends synced' }).toBe('synced');
     }
 
-    if (process.env.SOAK_TRACE) for (const p of pages) await snapshot(p, `seed=${seed} final`);
+    if (process.env.SOAK_TRACE && process.env.SOAK_SNAPSHOT !== '0') for (const p of pages) await snapshot(p, `seed=${seed} final`);
     const expected = new Set(mine.flatMap(m => [...m.keys()]));
     const rows = async () => (await db.list('spaces/_/items')).filter(d => !d._deleted).map(d => d.text).filter(t => t?.startsWith(tag));
     await expect.poll(async () => [...new Set(await rows())].sort().join('\n'), { timeout: 60_000, message: 'backend matches expected' }).toBe([...expected].sort().join('\n'));
