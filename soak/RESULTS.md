@@ -68,3 +68,28 @@ All 125 Chromium regression cases passed. Acknowledged CRUD passed 3/3. The rapi
 The eight initial chaos failures and three further chaos failures are reported without engine fixes or automatic retries.
 WebKit's 135 requested cases remain blocked. No confirmed loss of an acknowledged save was observed in the focused probe;
 that limited result does not establish that the engine is bug-free under all chaos conditions.
+
+
+## Round 3: app-sync 1.3.11 (27 Oct 2026 SGT)
+
+Local package: `github:flamingbeing/app-sync#v1.3.11`, commit `a3d25edbc37a7921d847d251704ead9aa6d6233d`.
+Import map and generated service-worker shell use 1.3.11. Chromium only, demo emulators only; logs remain in TEMP.
+No engine, application behavior, Worker source, or live service changes. The test server adjusts the inline-map CSP hash.
+
+Completed so far: natural quick adds 10/10 pass; acknowledged offline CRUD 10/10 pass;
+immediate-delete/reload with pre-reload IndexedDB read 10/10 pass; minimal next-draft regression 0/10 pass.
+The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is running with three workers and full-length blips.
+The original one-worker seed-4 prefix is also being checked without a pre-reload read to test for observer effects.
+
+Confirmed bug: `app/src/screens/list.js`, `listScreen`, async `submit` listener (lines 55–61).
+The first save resolves, then line 60 unconditionally clears a newer draft. The next submit reads an empty string and
+returns without calling app-sync. Minimal regression: `soak/quick-input.spec.mjs`; replay `bash soak/run.sh minimal 1`.
+In all ten minimal runs, IndexedDB holds the first accepted pending change; no second save call or second queue entry exists.
+The instrumentation schedules no artificial promise delays and changes no engine code.
+
+Interpretation: IndexedDB reads are asynchronous and can let an unacknowledged write finish before reload.
+These probes cannot alone establish that an original reload race has vanished. Seed-2 failures at the extra pending
+add are class C, not retained-delete reproductions. Final chaos totals and any blocked cases will be recorded here.
+
+Excluded setup attempts: the first ten quick-add attempts had the outdated import-map CSP hash; interrupted early
+chaos/minimal batches and the startup attempt encountering an occupied test-server port are not final result counts.
