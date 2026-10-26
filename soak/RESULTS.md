@@ -72,66 +72,85 @@ that limited result does not establish that the engine is bug-free under all cha
 
 ## Round 3: app-sync 1.3.11 (27 Oct 2026 SGT)
 
-Local package: `github:flamingbeing/app-sync#v1.3.11`, commit `a3d25edbc37a7921d847d251704ead9aa6d6233d`.
-Import map and generated service-worker shell use 1.3.11. Chromium only, demo emulators only; logs remain in TEMP.
-No engine, application behavior, Worker source, or live service changes. The test server adjusts the inline-map CSP hash.
+Pinned source: `github:flamingbeing/app-sync#v1.3.11`, commit `a3d25edbc37a7921d847d251704ead9aa6d6233d`.
+The import map and generated service-worker shell match. Browser modules are routed from the installed package.
+Chromium only, demo-sandbox-app emulators only. No engine/app source fixes or live services; Life is unchanged.
+The test server observes the original save promise and matches the bumped import-map CSP hash in its response.
 
-Completed so far: natural quick adds 10/10 pass; acknowledged offline CRUD 10/10 pass;
-offline immediate-delete/reload 10/10 pass; slow immediate-delete/reload 10/10 pass; minimal next-draft regression 0/10 pass.
-The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is running with four workers and full-length blips. It guards new drafts against C and observes chip status separately from exact backend/UI data assertions. Each scenario cleans its own demo records after capturing evidence.
-The original one-worker seed-4 prefix is also being checked without a pre-reload read to test for observer effects.
+### Primary narrowed reruns
 
-Confirmed bug: `app/src/screens/list.js`, `listScreen`, async `submit` listener (lines 55–61).
-The first save resolves, then line 60 unconditionally clears a newer draft. The next click finds an empty required field, so native validation blocks submission and no second app-sync call occurs. Minimal regression: `soak/quick-input.spec.mjs`; replay `bash soak/run.sh minimal 1`.
-In all ten minimal runs, IndexedDB holds the first accepted pending change; no second save call or second queue entry exists.
-The instrumentation schedules no artificial promise delays and changes no engine code.
+The resumed run uses `soak/focused-run.mjs`: ten repetitions per requested seed, fresh emulator/server per seed,
+one or two workers, bounded logs, explicit process-group shutdown. A uses the prefix through its original failing
+operation: seed 1 → steps 0–13; 4 → 0–1; 6 → 0–13; 7 → 0–3; 8 → 0–22; 10 → 0–14. B seed 2 uses steps 0–24.
+The final prefix operation is checked before unrelated subsequent chaos. Offline dwell is shortened to 10–600 ms
+(scale 0.01); latency remains 300–3000 ms and bandwidth 50–500 kbps. These are narrowed boundary reruns, not a
+completed full-duration soak. New-draft guards isolate A/B from the confirmed C bug. No wait is added between a
+normal operation and its immediate-reload probe; the IndexedDB snapshot itself can nevertheless alter that race.
 
-Interpretation: IndexedDB reads are asynchronous and can let an unacknowledged write finish before reload.
-These probes cannot alone establish that an original reload race has vanished. Seed-2 failures at the extra pending
-add are class C, not retained-delete reproductions. Final chaos totals and any blocked cases will be recorded here.
+Every pre-reload/close probe records save calls/settlement, item/outbox IndexedDB contents, input assignments and
+UI state. Firebase Auth databases are excluded. Final exact backend and per-phone lists, duplicates and deletions
+still assert. Chip status is recorded separately (`SOAK_STATUS=observe`); passes do not certify synced-status behavior.
+Scenario cleanup closes clients, then deletes only its own made-up item/bin records. Logs, traces and JSON reports
+remain in TEMP, with emulator/server logs capped at 1 MiB and continuously drained.
 
-Excluded setup attempts: the first ten quick-add attempts had the outdated import-map CSP hash; interrupted early
-chaos/minimal batches (including the unguarded A/B attempt blocked by C) and the startup attempt encountering an occupied test-server port are not final result counts.
+Primary A/B totals: pending completion of the isolated reruns. Authoritative reports are `round3-boundary-<seed>.json`.
+Previously completed controls are retained, not rerun: natural quick adds 10/10 pass; acknowledged offline CRUD
+10/10 pass; immediate offline delete/reload 10/10 pass; slow unresolved delete/reload 10/10 pass.
+The UI minimal regression failed 10/10; the independent real-engine tombstone model failed 10/10.
 
-The slow delete probe had a delete save call, no resolved delete promise, and a durable tombstone in IndexedDB
-in all ten pre-reload snapshots. Every deletion then reached the backend and stayed absent in the UI.
-The earlier unguarded seed-4 observation also exposed the same UI bug during ordinary adds: completion of an
-older add cleared the later draft, which had zero save calls and zero queue entries. This is not engine loss.
+### Confirmed bug C: an earlier add clears a newer draft
 
-The first shared-emulator long runs became unhealthy: Firestore logged 10,001 pending back-channel messages,
-aborted channels, and returned HTTP 409 “Transaction lock timeout” on reset. Their stale-status/setup failures are
-harness infrastructure observations, not proven record loss. Final A/B reruns use a fresh job-local Firestore on
-8104/8108 and server on 8103, retain full-length blips, and bound scenario data. Chip status is recorded, not asserted;
-therefore a loss-probe pass must not be described as a full synced-status soak pass.
-The unprobed seed-4 step-1 prefix completed 10 attempts: 9 passed, 1 stale-status timeout; no step-1 missing-row failure.
+Source: `app/src/screens/list.js`, `listScreen`'s async submit handler, lines 55–61, specifically line 60.
+Completion of an earlier `app.add` unconditionally clears the current input. A newer draft is erased. Because the
+field is required, native validation blocks the next click: no second submit/save reaches app-sync.
 
+Minimal replay: `bash soak/run.sh minimal 1` (`soak/quick-input.spec.mjs`). It pins “submit first draft → enter next
+draft → finish first save → attempt next add” without mocked storage, engine patches or artificial promise delays.
+All ten completed runs show first save called/resolved and first pending change accepted in IndexedDB, a clear of
+the newer draft, exactly one save call overall, and no second outbox entry. This is UI draft loss, not engine loss.
+The original natural quick-add scenario passed 10/10 and therefore did not independently reproduce in that batch.
 
-### Confirmed engine regression: delayed full snapshot resurrects a tombstoned version
+### Confirmed independent engine bug: a delayed full snapshot ignores a known tombstone
 
-`app-sync/src/sync.js`, `createCollectionSync`'s `onSnap`, full-snapshot branch (1.3.11 lines 383–395):
-`replaceAll` admits the full list without applying `meta.gone`. The delta path uses `applyChanges`, which rejects
-versions at or below the known tombstone. Independent items/bin listeners can deliver the bin tombstone first,
-then the items listener's earlier first server snapshot. The known deleted version returns to UI and device storage.
+Source: `app-sync/src/sync.js`, `createCollectionSync.onSnap`, full-snapshot branch (1.3.11 lines 383–395).
+`replaceAll` admits the full list without applying `meta.gone`. The delta path's `applyChanges` rejects versions
+at or below that tombstone. Independent items/bin listeners can deliver a newer bin tombstone before an older
+first server snapshot. The deleted version is then restored to the UI and device store despite the tombstone.
 
-Minimal real-engine model: `soak/tombstone-full.node.spec.mjs`, 10/10 fail on the installed 1.3.11 source.
-Replay: `node --test soak/tombstone-full.node.spec.mjs`. No engine files are changed; the model explicitly supplies ordered listener callbacks.
-The model uses an in-memory store and explicitly ordered listener callbacks; it is not an emulator replay.
-Evidence: cached row stamp 100 → tombstone 100 removes it → first server full snapshot with stamp 100 restores it.
+Minimal replay: `node --test soak/tombstone-full.node.spec.mjs`, 10/10 fail on installed 1.3.11 source.
+Evidence: cached row stamp 100 → tombstone 100 removes it → delayed first full snapshot with stamp 100 restores it.
+The model supplies ordered listener callbacks and an in-memory store; it is not a browser/emulator replay.
+No engine files are changed. This independently proves the engine bug; it does not establish the cause of an old
+chaos failure without that callback-order evidence.
 
-The fresh Chromium seed-2 repeat 2 also failed with a UI-only retained deleted item: backend equality had passed,
-but phone 2 still held/showed the deleted record and reported synced. Its originating phone's delete call resolved;
-its IndexedDB delete job was synced/accepted, while the receiving phone had the record and no local job for it.
-This differs from the earlier job's backend-retained-delete observation. The full-snapshot model proves an engine
-bug with the same UI phenotype; exact callback ordering in this browser occurrence was not traced.
+### Excluded attempts and limits
 
+Earlier long concurrent batches saturated two Firestore emulator instances. They logged 10,001 pending back-channel
+messages and NETWORK_ERROR, then HTTP 409 transaction-lock timeouts on reset. The first fresh-instance overflow
+was **01:35:32 SGT**. Its later seed-2 UI-only retained item occurred after that cutoff and is infrastructure-confounded;
+it must not be presented as a clean browser reproduction of the model bug. Backend equality had passed and the
+originating delete job was synced/accepted, but the receiving phone still held the row while saying synced.
 
-### Primary run selection (fixed before the tail finishes)
+Full-duration/split batches, startup failures, emulator-saturated runs and interrupted/provider-restart runs are
+excluded from the primary narrowed totals. The earlier unprobed seed-4 step-1 control had 9 passes and 1 stale-chip
+timeout, with no original missing-row failure. Initial quick-add attempts with an outdated CSP hash are excluded.
+Read IndexedDB as requested, but remember that its read transaction can let a pending enqueue finish before reload.
+An optimistic row or click is not proof of a resolved/durable save. No loss of an acknowledged engine save has been
+established by the completed durability controls. Original A and backend-retained-delete B remain unconfirmed until
+the narrowed reruns finish; model and UI regressions above are independently reproducible.
 
-The final requested 70 chaos cases are repetitions 0–3 of every requested seed from `round3-ab-fresh` (server 8103,
-four workers), plus repetitions 4–9 from `round3-ab-tail` (server 8109, six workers, local repeat 0–5 with offset 4).
-Both use the fresh Firestore on 8104/8108, the same pinned engine, full 25 steps and unscaled 1–60 second blips,
-new-draft guards, exact backend/UI assertions, observed chip status and scenario cleanup. Tail global setup does not
-clear the concurrently running primary data. Any first-batch repetitions beyond 3 are diagnostic extras and are
-excluded from primary totals. Repetition identity is recorded by the tail fixture annotation.
-The split keeps all requested repetitions within the job deadline; peak concurrency is ten scenarios, with bounded
-made-up data. Earlier emulator-saturated, interrupted or setup-only attempts remain excluded.
+### Replays and validation
+
+After the portable setup and `. soak/env.sh`:
+
+```sh
+node soak/focused-run.mjs
+# One requested seed only; fresh isolated emulator, ten repetitions:
+SOAK_SEEDS=4 SOAK_WORKERS=2 node soak/focused-run.mjs
+bash soak/run.sh minimal 1
+node --test soak/tombstone-full.node.spec.mjs
+```
+
+The supervisor defaults to a 35-minute cap; SOAK_SEEDS, SOAK_REPEATS, SOAK_WORKERS and SOAK_LIMIT_MINUTES allow
+resuming only unfinished batches. Assertions have no retries. Source syntax, shell syntax, typecheck and generated
+service-worker consistency checks are recorded with final totals.
