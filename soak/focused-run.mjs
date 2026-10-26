@@ -17,7 +17,7 @@ function start(command, args, name, env) {
   let bytes = 0;
   const write = chunk => { if (bytes < 1024 * 1024) { fs.writeSync(fd, chunk); bytes += chunk.length; } };
   child.stdout.on('data', write); child.stderr.on('data', write);
-  child.finished = new Promise(resolve => child.once('exit', code => { fs.closeSync(fd); resolve(code); }));
+  child.finished = new Promise(resolve => child.once('close', code => { fs.closeSync(fd); resolve(code); }));
   return child;
 }
 async function stop(child) {
@@ -62,7 +62,8 @@ try {
       server = start('node', ['soak/serve.mjs', '8100'], `${name}-server`, env);
       await ready('http://127.0.0.1:8100/app/');
       tests = start('node', ['node_modules/@playwright/test/cli.js', 'test', '-c', 'soak/playwright.config.mjs',
-        'soak/chaos.spec.mjs', '--project=chromium', '--repeat-each=10', '--workers=1'], name, env);
+        'soak/chaos.spec.mjs', '--project=chromium', `--repeat-each=${Number(process.env.SOAK_REPEATS || 10)}`,
+        `--workers=${Number(process.env.SOAK_WORKERS || 1)}`], name, env);
       const code = await tests.finished;
       let stats;
       try { stats = JSON.parse(fs.readFileSync(path.join(temp, `${name}.json`), 'utf8')).stats; } catch {}
