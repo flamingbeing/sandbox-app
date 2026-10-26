@@ -20,6 +20,7 @@ test('C: completing the first offline add must preserve the next draft', async (
   expect(before.events.filter(e => e.type === 'save-call')).toHaveLength(1);
   // Clicking now reproduces the empty second submission after the earlier completion clears it.
   await page.click('#add button[type=submit]');
-  await snapshot(page, 'second-submit');
+  const after = await snapshot(page, 'second-submit');
+  expect(after.events.filter(e => e.type === 'save-call'), 'the second draft must reach app-sync').toHaveLength(2);
   await expect(page.locator('#items')).toContainText(second);
 });

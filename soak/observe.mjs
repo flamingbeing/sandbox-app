@@ -1,7 +1,30 @@
 // Test-only trace. Only app-sync item databases are read; Firebase Auth storage is excluded.
-import { test as base, expect, signIn, signInAgain, synced, uniq, APP, db } from '../e2e/fixtures.mjs';
+import { test as base, expect, signIn, signInAgain, synced, uniq, APP, db as baseDb } from '../e2e/fixtures.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+
+// The original helper reads only one 300-document page. Long repeated runs must read every page.
+const decode = v => 'stringValue' in v ? v.stringValue : 'booleanValue' in v ? v.booleanValue
+  : 'integerValue' in v ? Number(v.integerValue) : 'doubleValue' in v ? v.doubleValue
+  : 'nullValue' in v ? null : 'arrayValue' in v ? (v.arrayValue.values || []).map(decode)
+  : 'mapValue' in v ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, decode(x)])) : undefined;
+export const db = { ...baseDb, async list(collection) {
+  const host = process.env.FIRESTORE_EMULATOR_HOST;
+  if (host !== '127.0.0.1:8101') throw new Error('Soak oracle requires the local demo emulator');
+  const result = [];
+  let token = '';
+  do {
+    const url = new URL(`http://${host}/v1/projects/demo-sandbox-app/databases/(default)/documents/${collection}`);
+    url.searchParams.set('pageSize', '300');
+    if (token) url.searchParams.set('pageToken', token);
+    const response = await fetch(url, { headers: { Authorization: 'Bearer owner' } });
+    if (!response.ok) throw new Error(`Soak oracle: ${response.status}`);
+    const body = await response.json();
+    result.push(...(body.documents || []).map(d => Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, decode(v)]))));
+    token = body.nextPageToken || '';
+  } while (token);
+  return result;
+} };
 
 export const test = base.extend({
   phone: async ({ phone }, use, info) => {
@@ -72,4 +95,4 @@ export async function snapshot(page, label) {
     return result;
   }, label);
 }
-export { expect, signIn, signInAgain, synced, uniq, APP, db };
+export { expect, signIn, signInAgain, synced, uniq, APP };
