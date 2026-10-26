@@ -19,7 +19,7 @@ No system packages are installed by these scripts. Set TEMP to a writable privat
 
 ```sh
 npm ci
-npx playwright install chromium webkit
+npx playwright install chromium
 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium
 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=webkit
 npx playwright test -c soak/playwright.config.mjs e2e/sync.spec.mjs e2e/offline.spec.mjs --project=webkit --repeat-each=25
@@ -40,7 +40,7 @@ curl -fL 'https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/
 tar -xzf ../runtime/jdk.tar.gz -C ../runtime
 . soak/env.sh
 npm ci
-npx playwright install chromium webkit
+npx playwright install chromium
 mkdir -p .devkit/playwright
 curl -fsSL https://raw.githubusercontent.com/flamingbeing/app-devkit/v1.9.2/playwright/helpers.mjs -o .devkit/playwright/helpers.mjs
 SOAK_OUTPUT=chromium-round1 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium
@@ -66,53 +66,52 @@ Short commands after portable setup: `bash soak/run.sh chaos 1`, `bash soak/run.
 
 ## Acceptance-boundary triage (1.3.11)
 
-Use the installed package as the browser's app-sync source, rather than relying on a remote deployment:
+After portable setup, run isolated focused seeds without relying on a deployed engine:
 
 ```sh
 . soak/env.sh
-export SOAK_TRACE=1 SOAK_GUARD_QUICK_ADD=1 SOAK_STATUS=observe SOAK_CLEANUP=1 SYNC_DIR="$PWD/node_modules/app-sync"
-SOAK_OUTPUT=triage-chaos SOAK_SEEDS=1,2,4,6,7,8,10 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium --repeat-each=10 --workers=4
-# Minimal intentionally failing regression for the next-draft clearing bug:
+SOAK_WORKERS=2 node soak/focused-run.mjs
+# Resume only unfinished seeds, preserving earlier report names:
+SOAK_SEEDS=6,7,8,10,2 SOAK_WORKERS=2 SOAK_BATCH_TAG=continued node soak/focused-run.mjs
+# Intentionally failing minimal regressions:
 bash soak/run.sh minimal 1
+node --test soak/tombstone-full.node.spec.mjs
 ```
 
-`SOAK_TRACE=1` instruments only the served response for `cloud.js`: it observes the public `app.sync.save`
-call and original promise settlement. It does not patch engine code, delay promises, or change storage.
-The test server also matches the response CSP hash to the locally bumped import map; Worker source is unchanged.
-`observe.mjs` records submits and input assignments, and reads item/outbox IndexedDB stores immediately before
-reload/close. Firebase Auth databases are excluded. The JSONL evidence, browser traces and reports stay in TEMP.
-Snapshots are asynchronous observations and can affect a race; a snapshot showing an optimistic row alone does
-not prove acceptance. Check the save resolution and queue entry as well. Backend reads paginate all results.
+The supervisor starts a fresh demo emulator and local server for each seed, captures bounded logs in TEMP, and
+stops its process groups before the next seed. Ten repetitions per seed, no retries. SOAK_REPEATS, SOAK_WORKERS,
+SOAK_SEEDS, SOAK_BATCH_TAG and SOAK_LIMIT_MINUTES support explicit resumptions. Default cap: 35 minutes.
+A TEMP file named `round3-pause` requests a graceful checkpoint: later cases skip, then the supervisor stops.
+Remove that control file before resuming. Skipped cases are not completed repetitions.
 
-`quick-input.spec.mjs` pins the order “submit first draft, enter next draft, finish first save, attempt next add”.
-It uses the real engine and IndexedDB, with no mocked save or artificial delay. Its failure is intentional until
-the application submit handler preserves a newer draft. Keep this result separate from the natural quick-add rerun.
+A prefixes stop after the originally failing operation: seed 1 step 13, 4 step 1, 6 step 13, 7 step 3, 8 step 22,
+10 step 14. Seed 2 exercises all 25 operations. Subsequent chaos after the last prefix operation is omitted.
+Offline dwell is shortened to 10–600 ms (SOAK_TIME_SCALE=0.01); latency remains 300–3000 ms and throughput
+50–500 kbps. This is focused boundary coverage, not a full-duration soak. Original full chaos remains available
+through `run.sh chaos`; SCALE=1 is the default outside the supervised focused runner.
 
-`SOAK_REUSE_SERVER=1` reuses only a server this job already started. For a parallel probe against that server,
-`PW_NO_EMULATOR=1` also prevents global setup from clearing the running suite's demo data. Use distinct SOAK_OUTPUT
-names. Do not enable reuse against a live service.
+SOAK_TRACE instruments only served cloud.js, observing the public app.sync.save call and its original promise.
+The response CSP hash matches the bumped import map; Worker source is unchanged. SYNC_DIR routes browser engine
+modules from the installed package. No engine implementation files or application behavior are patched.
+observe.mjs records input assignments/submits and reads item, outbox and tombstone IndexedDB stores before
+reload/close. Firebase Auth databases are excluded. Evidence and traces stay outside git, under TEMP.
+A read transaction can let an unacknowledged enqueue finish, so record save resolution and queue presence separately.
 
-For independent A/B triage, `SOAK_GUARD_QUICK_ADD=1` waits for earlier submit promises before filling any new draft. It prevents the confirmed C race from blocking these cases; it does not wait before the normal
-immediate reload. Natural quick-add and minimal C probes run without that guard.
-`SOAK_SNAPSHOT=0` disables pre-reload/close reads for a paired timing control while retaining call/input traces
-and failure-time snapshots. `SOAK_SEEDS=4 SOAK_STEPS=2` targets seed 4's originally reported step-1 failure;
-it is prefix coverage, not a complete 25-step soak.
-`delete-boundary.spec.mjs` has offline and slow-online variants. The slow variant reloads while the save promise
-is unresolved; the pre-reload snapshot distinguishes durable pending tombstones from unqueued delete intentions.
+SOAK_GUARD_QUICK_ADD waits for previous promises before filling a new draft, isolating A/B from C; it adds no wait
+before the current operation's immediate reload. SOAK_STATUS=observe retains exact backend/UI, duplicate and deletion
+assertions, while recording chip status separately. A data pass is not a full synced-chip pass. SOAK_CLEANUP closes
+each scenario's clients after evidence capture, checks CSP, then deletes only the item/bin IDs that scenario saved.
+The oracle paginates all backend documents instead of silently stopping at 300.
 
-`SOAK_STATUS=observe` narrows the result to the three loss classes: backend exact-set equality, every phone's exact
-list and duplicate/deletion checks still assert; chip states are captured in `data-equality-result` rather than
-blocking those assertions. It is not a full synced-status pass. The default still asserts the synced chip.
-`SOAK_CLEANUP=1` captures evidence, checks CSP, closes the scenario's clients, then removes only item/bin records
-whose IDs its own save calls created. This bounds shared-list snapshots during a long repeat run.
+quick-input.spec.mjs pins “submit first draft → enter next draft → finish first save → attempt next add”.
+The earlier completion clears the newer required field; native validation then blocks a second submission.
+Its normal assertion intentionally fails until the UI source bug is fixed. No save or storage is mocked.
+tombstone-full.node.spec.mjs imports the installed engine and supplies an in-memory store plus ordered listener
+callbacks. It proves that a delayed first full snapshot restores a version already covered by a tombstone.
+Its ten assertions intentionally fail on 1.3.11. This is an engine model, not a browser replay.
 
-If a job-owned Firestore emulator becomes unhealthy, an isolated instance can use 8104 (WebSocket 8108) with the
-existing demo Auth emulator on 8102. Start the portable JAR in a separate terminal with its working directory/logs
-under TEMP, using `--host 127.0.0.1 --port 8104 --websocket_port 8108 --project_id demo-sandbox-app --rules <absolute-path-to-app/firestore.rules> --single_project_mode true`.
-Set `SOAK_PORT=8103 SOAK_FIRESTORE_HOST=127.0.0.1:8104` for Playwright. No other ports or live projects are allowed.
-
-A split batch may use test-server port 8109 with `SOAK_PORT=8109`, the same `SOAK_FIRESTORE_HOST=127.0.0.1:8104`,
-and `PW_NO_EMULATOR=1` to preserve another batch's data. `SOAK_REPEAT_OFFSET=4` labels local repeats 0–5 as logical
-repetitions 4–9. Use distinct output names and define the primary selection before aggregating overlapping runs.
-The Node regression `node --test soak/tombstone-full.node.spec.mjs` independently proves that a delayed first full
-snapshot can resurrect a version already covered by a tombstone; its ten cases intentionally fail on 1.3.11.
+For separate manual probes, SOAK_REUSE_SERVER=1 may reuse this job's local server. PW_NO_EMULATOR=1 prevents
+parallel global setup from clearing another batch's data. Use different output names. Alternate reserved ports
+SOAK_PORT=8103 or 8109 and SOAK_FIRESTORE_HOST=127.0.0.1:8104 are accepted; a direct Firestore on 8104 uses
+WebSocket 8108 and the demo Auth emulator remains 8102. Never reuse a live service or bind outside 8100–8109.
+See RESULTS.md for verified totals, excluded saturated attempts and exact limitations.
