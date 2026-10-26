@@ -33,11 +33,13 @@ export const test = base.extend({
     const log = path.join(dir, `evidence-${info.repeatEachIndex}-${info.title.replace(/[^a-z0-9]+/gi, '-')}.jsonl`);
     let sequence = 0;
     const contexts = [];
+    const itemIds = new Set();
     await use(async () => {
       const page = await phone();
       contexts.push(page.context());
       const phoneId = sequence++;
       await page.context().exposeBinding('__soakEmit', (source, event) => {
+        if (event.type === 'save-call' && event.kind === 'items') itemIds.add(event.record.id);
         fs.appendFileSync(log, JSON.stringify({ phone: phoneId, ...event }) + '\n');
       });
       await page.context().addInitScript(() => {
@@ -61,6 +63,18 @@ export const test = base.extend({
     if (process.env.SOAK_TRACE && info.status !== info.expectedStatus) {
       for (const context of contexts) for (const page of context.pages()) {
         await snapshot(page, 'failure-teardown').catch(() => {});
+      }
+    }
+    // Bound repeated emulator runs without clearing another concurrent scenario's records.
+    // Capture evidence first, then close clients before deleting this scenario's own made-up data.
+    if (process.env.SOAK_CLEANUP) {
+      for (const context of contexts) {
+        for (const page of context.pages()) expect(await page.evaluate(() => window.__csp || []).catch(() => []), 'CSP violations').toEqual([]);
+        await context.close();
+      }
+      for (const id of itemIds) {
+        await db.del(`spaces/_/items/${id}`);
+        await db.del(`spaces/_/bin/items:${id}`);
       }
     }
   },
