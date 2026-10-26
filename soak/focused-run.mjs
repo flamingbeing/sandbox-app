@@ -15,7 +15,10 @@ function start(command, args, name, env) {
   children.add(child);
   const fd = fs.openSync(path.join(temp, `${name}.log`), 'w');
   let bytes = 0;
-  const write = chunk => { if (bytes < 1024 * 1024) { fs.writeSync(fd, chunk); bytes += chunk.length; } };
+  const write = chunk => {
+    const remaining = 1024 * 1024 - bytes;
+    if (remaining > 0) { const part = chunk.subarray(0, remaining); fs.writeSync(fd, part); bytes += part.length; }
+  };
   child.stdout.on('data', write); child.stderr.on('data', write);
   child.finished = new Promise(resolve => child.once('close', code => { fs.closeSync(fd); resolve(code); }));
   return child;
