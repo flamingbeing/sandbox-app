@@ -5,6 +5,7 @@ Uses only the demo-sandbox-app emulators. The test server maps emulator ports in
 all listeners use 8100-8107. One worker limits load. Each seed uses 2-3 isolated phone contexts,
 25 random operations and real 1-60 second blips. Toggle means changing a textual done marker;
 the sample application has no boolean done field. Phones own disjoint items to give an exact final-state oracle.
+Each seed warms the existing service-worker shell before throttling. Chromium conditions are restored after each offline blip.
 Every seed forces a reload, a close/reopen with a confirmed queued save, and an offline blip;
 additional disruptions are seeded. It checks final backend content, duplicate text, every phone's list and synced chip.
 This is interleaved multi-phone coverage; simultaneous same-field conflict coverage comes from sync.spec.mjs.
@@ -59,4 +60,6 @@ that the save has reached durable storage. The separate `reload.spec.mjs` case w
 save promise has resolved), then reloads before the slow upload. Report the two cases separately: an immediate-submit
 race alone does not establish loss of an accepted outbox save.
 
-Execution results are recorded after the run. Raw logs, screenshots, traces, downloaded tools and JSON reports stay outside git.
+See [RESULTS.md](RESULTS.md) for execution results and failure interpretation. Raw logs, screenshots, traces, downloaded tools and JSON reports stay outside git.
+
+Short commands after portable setup: `bash soak/run.sh chaos 1`, `bash soak/run.sh regression 25`, and `bash soak/run.sh focused 3`.
