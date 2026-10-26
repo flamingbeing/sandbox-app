@@ -21,12 +21,13 @@ async function throttle(page, r, browserName) {
   if (browserName !== 'chromium') return;
   const cdp = await page.context().newCDPSession(page);
   await Promise.race([cdp.send('Network.enable'), sleep(10_000).then(() => { throw new Error('CDP Network.enable timed out'); })]);
-  await cdp.send('Network.emulateNetworkConditions', {
+  cdp.soakConditions = {
     offline: false,
     latency: between(r, 300, 3000),
     downloadThroughput: between(r, 50, 500) * 1000 / 8,
     uploadThroughput: between(r, 50, 500) * 1000 / 8,
-  });
+  };
+  await cdp.send('Network.emulateNetworkConditions', cdp.soakConditions);
   return cdp;
 }
 
@@ -41,6 +42,12 @@ for (const seed of SEEDS) {
     const { email } = await signIn(first, 'member');
     pages.push(first);
     for (let i = 1; i < n; i++) { const p = await phone(); await signInAgain(p, email); pages.push(p); }
+    // Use the production offline-shell path; warm it before slowing backend traffic.
+    for (const p of pages) {
+      await p.goto(APP + '&sw');
+      await expect.poll(() => p.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 60_000 }).toBe(true);
+      await expect.poll(() => p.evaluate(() => window.starter.ready), { timeout: 30_000 }).toBe(true);
+    }
     for (const p of pages) { sessions.push(await throttle(p, r, browserName)); mine.push(new Map()); }
     const everDeleted = new Set(), everAdded = new Set();
     let counter = 0;
@@ -97,6 +104,7 @@ for (const seed of SEEDS) {
         console.log(`seed=${seed} offline-ms=${Math.round(blip)}`);
         await sleep(blip);
         await page.context().setOffline(false);
+        if (sessions[i]) await sessions[i].send('Network.emulateNetworkConditions', sessions[i].soakConditions);
       } else if (c < 0.25) {                   // reload straight after a save (mid-save)
         await page.reload({ waitUntil: 'commit' });
         await expect(page.locator('#list-view')).toBeVisible({ timeout: 180_000 });
@@ -123,7 +131,7 @@ for (const seed of SEEDS) {
 
     // settle: everyone online, wait for every chip to say synced
     for (const p of pages) await p.context().setOffline(false);
-    for (const cdp of sessions) if (cdp) await cdp.send('Network.emulateNetworkConditions', {
+    for (const cdp of sessions) if (cdp) cdp.soakConditions = {
       offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
     });
     for (const p of pages) {

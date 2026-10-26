@@ -23,6 +23,8 @@ test('an accepted offline save survives a reload before its slow upload', async 
   await expect(a.locator('#items')).toContainText(text);
   await expect.poll(() => a.evaluate(() => window.starter.status)).not.toBe('synced');
   await a.context().setOffline(false);
+  if (cdp) await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 2000,
+    downloadThroughput: 500 * 1000 / 8, uploadThroughput: 50 * 1000 / 8 });
   await a.reload({ waitUntil: 'commit' });
   await expect(a.locator('#list-view')).toBeVisible({ timeout: 180_000 });
   if (cdp) await cdp.send('Network.emulateNetworkConditions', {
