@@ -7,6 +7,10 @@ Lasting decisions and how to test. Shaping decisions have their own records in [
 See README, "Tests". The browser tests use one shared list (`spaces/_/items`), so each test uses its own made-up
 accounts and item texts and checks only those; they run side by side.
 
+## Sync loss triage (27 Oct 2026)
+
+See [soak/README.md](soak/README.md) and [results](soak/RESULTS.md). The 1.3.11 browser draft-loss and Node tombstone/full-snapshot specs intentionally fail until their source bugs are fixed. Loss-only chaos probes guard newer drafts, compare exact backend/UI state, record chip status separately, and clean only their own demo data. Logs stay outside git.
+
 ## Later
 
 - Restore from the bin (the bin entries keep the deleted version in `data`).

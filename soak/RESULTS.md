@@ -105,3 +105,22 @@ harness infrastructure observations, not proven record loss. Final A/B reruns us
 8104/8108 and server on 8103, retain full-length blips, and bound scenario data. Chip status is recorded, not asserted;
 therefore a loss-probe pass must not be described as a full synced-status soak pass.
 The unprobed seed-4 step-1 prefix completed 10 attempts: 9 passed, 1 stale-status timeout; no step-1 missing-row failure.
+
+
+### Confirmed engine regression: delayed full snapshot resurrects a tombstoned version
+
+`app-sync/src/sync.js`, `createCollectionSync`'s `onSnap`, full-snapshot branch (1.3.11 lines 383–395):
+`replaceAll` admits the full list without applying `meta.gone`. The delta path uses `applyChanges`, which rejects
+versions at or below the known tombstone. Independent items/bin listeners can deliver the bin tombstone first,
+then the items listener's earlier first server snapshot. The known deleted version returns to UI and device storage.
+
+Minimal real-engine model: `soak/tombstone-full.node.spec.mjs`, 10/10 fail on the installed 1.3.11 source.
+Replay: `node --test soak/tombstone-full.node.spec.mjs`. No engine files, promise delays or snapshots are patched.
+The model uses an in-memory store and explicitly ordered listener callbacks; it is not an emulator replay.
+Evidence: cached row stamp 100 → tombstone 100 removes it → first server full snapshot with stamp 100 restores it.
+
+The fresh Chromium seed-2 repeat 2 also failed with a UI-only retained deleted item: backend equality had passed,
+but phone 2 still held/showed the deleted record and reported synced. Its originating phone's delete call resolved;
+its IndexedDB delete job was synced/accepted, while the receiving phone had the record and no local job for it.
+This differs from the earlier job's backend-retained-delete observation. The full-snapshot model proves an engine
+bug with the same UI phenotype; exact callback ordering in this browser occurrence was not traced.
