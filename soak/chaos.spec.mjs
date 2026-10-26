@@ -32,7 +32,7 @@ async function throttle(page, r, browserName) {
 }
 
 for (const seed of SEEDS) {
-  test(`chaos seed ${seed}`, async ({ phone, browserName }) => {
+  test(`chaos seed ${seed}`, async ({ phone, browserName }, testInfo) => {
     test.setTimeout(900_000);
     const r = rng(seed);
     const tag = uniq(`soak${seed}`);
@@ -92,6 +92,14 @@ for (const seed of SEEDS) {
         }
       } catch (e) {
         // a step that failed before its last click took no effect; one that failed after cannot be told apart here, so fail loudly
+        await testInfo.attach('failed-operation-state', { contentType: 'application/json', body: JSON.stringify({
+          seed, step, phone: i, expected: mine.map(m => [...m.keys()]),
+          backend: (await db.list('spaces/_/items')).filter(d => d.text?.startsWith(tag)),
+          phones: await Promise.all(pages.map(async p => ({
+            status: await p.evaluate(() => window.starter?.status).catch(() => 'closed'),
+            items: await p.locator('#items').innerText().catch(() => 'unavailable'),
+          }))),
+        }, null, 2) });
         throw new Error(`seed ${seed} step ${step} phone ${i} roll ${roll.toFixed(3)}: ${e.message}`);
       }
 
