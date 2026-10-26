@@ -37,6 +37,7 @@ const env = {
 };
 
 http.createServer(async (req, res) => {
+  try {
   if (req.url === '/__test/bump') { bump++; res.end(String(bump)); return; }
   const chunks = [];
   for await (const c of req) chunks.push(c);
@@ -44,4 +45,9 @@ http.createServer(async (req, res) => {
     method: req.method, headers: req.headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks) }), env);
   res.writeHead(r.status, Object.fromEntries(r.headers));
   res.end(Buffer.from(await r.arrayBuffer()));
+  } catch (error) {
+    console.error('test server request failed:', req.url, error.message);
+    if (!res.headersSent) res.writeHead(500);
+    res.end('test server request failed');
+  }
 }).listen(PORT, '127.0.0.1', () => console.log(`e2e server on http://localhost:${PORT}/app/`));
