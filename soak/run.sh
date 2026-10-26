@@ -19,6 +19,11 @@ case "$soak_mode" in
     soak_targets=(e2e/sync.spec.mjs e2e/offline.spec.mjs)
     soak_repeats="${2:-25}"
     ;;
+  minimal)
+    export SOAK_TRACE=1 SYNC_DIR="$PWD/node_modules/app-sync"
+    soak_targets=(soak/quick-input.spec.mjs)
+    soak_repeats="${2:-1}"
+    ;;
   *) echo 'Usage: bash soak/run.sh {chaos [seeds] [repeats]|focused [repeats]|regression [repeats]}' >&2; exit 2 ;;
 esac
 exec npx playwright test -c soak/playwright.config.mjs "${soak_targets[@]}" \
