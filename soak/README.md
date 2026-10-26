@@ -1,6 +1,6 @@
 # Network chaos soak
 
-Test-only harness for the pinned app-sync 1.3.10. No engine or application source code is changed.
+Test-only harness for the pinned app-sync 1.3.11. No engine or application behavior is changed.
 Uses only the demo-sandbox-app emulators. The test server maps emulator ports in its in-memory response;
 all listeners use 8100-8107. One worker limits load. Each seed uses 2-3 isolated phone contexts,
 25 random operations and real 1-60 second blips. Toggle means changing a textual done marker;
@@ -63,3 +63,31 @@ race alone does not establish loss of an accepted outbox save.
 See [RESULTS.md](RESULTS.md) for execution results and failure interpretation. Raw logs, screenshots, traces, downloaded tools and JSON reports stay outside git.
 
 Short commands after portable setup: `bash soak/run.sh chaos 1`, `bash soak/run.sh regression 25`, and `bash soak/run.sh focused 3`.
+
+## Acceptance-boundary triage (1.3.11)
+
+Use the installed package as the browser's app-sync source, rather than relying on a remote deployment:
+
+```sh
+. soak/env.sh
+export SOAK_TRACE=1 SYNC_DIR="$PWD/node_modules/app-sync"
+SOAK_OUTPUT=triage-chaos SOAK_SEEDS=1,2,4,6,7,8,10 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium --repeat-each=10 --workers=3
+# Minimal intentionally failing regression for the next-draft clearing bug:
+bash soak/run.sh minimal 1
+```
+
+`SOAK_TRACE=1` instruments only the served response for `cloud.js`: it observes the public `app.sync.save`
+call and original promise settlement. It does not patch engine code, delay promises, or change storage.
+The test server also matches the response CSP hash to the locally bumped import map; Worker source is unchanged.
+`observe.mjs` records submits and input assignments, and reads item/outbox IndexedDB stores immediately before
+reload/close. Firebase Auth databases are excluded. The JSONL evidence, browser traces and reports stay in TEMP.
+Snapshots are asynchronous observations and can affect a race; a snapshot showing an optimistic row alone does
+not prove acceptance. Check the save resolution and queue entry as well. Backend reads paginate all results.
+
+`quick-input.spec.mjs` pins the order “submit first draft, enter next draft, finish first save, submit next draft”.
+It uses the real engine and IndexedDB, with no mocked save or artificial delay. Its failure is intentional until
+the application submit handler preserves a newer draft. Keep this result separate from the natural quick-add rerun.
+
+`SOAK_REUSE_SERVER=1` reuses only a server this job already started. For a parallel probe against that server,
+`PW_NO_EMULATOR=1` also prevents global setup from clearing the running suite's demo data. Use distinct SOAK_OUTPUT
+names. Do not enable reuse against a live service.
