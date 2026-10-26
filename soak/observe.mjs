@@ -28,6 +28,7 @@ export const db = { ...baseDb, async list(collection) {
 
 export const test = base.extend({
   phone: async ({ phone }, use, info) => {
+    info.annotations.push({ type: 'soak-repeat', description: String(info.repeatEachIndex + Number(process.env.SOAK_REPEAT_OFFSET || 0)) });
     const dir = info.outputPath();
     fs.mkdirSync(dir, { recursive: true });
     const log = path.join(dir, `evidence-${info.repeatEachIndex}-${info.title.replace(/[^a-z0-9]+/gi, '-')}.jsonl`);
