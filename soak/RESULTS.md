@@ -78,7 +78,7 @@ No engine, application behavior, Worker source, or live service changes. The tes
 
 Completed so far: natural quick adds 10/10 pass; acknowledged offline CRUD 10/10 pass;
 offline immediate-delete/reload 10/10 pass; slow immediate-delete/reload 10/10 pass; minimal next-draft regression 0/10 pass.
-The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is running with four workers and full-length blips. It guards only the extra rapid add, so C does not block A/B at that step.
+The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is running with four workers and full-length blips. It guards new drafts against C and observes chip status separately from exact backend/UI data assertions. Each scenario cleans its own demo records after capturing evidence.
 The original one-worker seed-4 prefix is also being checked without a pre-reload read to test for observer effects.
 
 Confirmed bug: `app/src/screens/list.js`, `listScreen`, async `submit` listener (lines 55–61).
@@ -98,3 +98,10 @@ The slow delete probe had a delete save call, no resolved delete promise, and a 
 in all ten pre-reload snapshots. Every deletion then reached the backend and stayed absent in the UI.
 The earlier unguarded seed-4 observation also exposed the same UI bug during ordinary adds: completion of an
 older add cleared the later draft, which had zero save calls and zero queue entries. This is not engine loss.
+
+The first shared-emulator long runs became unhealthy: Firestore logged 10,001 pending back-channel messages,
+aborted channels, and returned HTTP 409 “Transaction lock timeout” on reset. Their stale-status/setup failures are
+harness infrastructure observations, not proven record loss. Final A/B reruns use a fresh job-local Firestore on
+8104/8108 and server on 8103, retain full-length blips, and bound scenario data. Chip status is recorded, not asserted;
+therefore a loss-probe pass must not be described as a full synced-status soak pass.
+The unprobed seed-4 step-1 prefix completed 10 attempts: 9 passed, 1 stale-status timeout; no step-1 missing-row failure.
