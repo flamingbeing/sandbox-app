@@ -119,6 +119,12 @@ for (const seed of SEEDS) {
         await page.reload({ waitUntil: 'commit' });
         await expect(page.locator('#list-view')).toBeVisible({ timeout: 180_000 });
       } else if (c < 0.32) {                   // close and reopen while saves may be unsent
+        // Triage A/B independently of C: do not let an earlier submit clear the extra draft.
+        // This waits only before the *extra* offline add, never before the normal immediate reload.
+        if (process.env.SOAK_GUARD_QUICK_ADD) await expect.poll(() => page.evaluate(() => {
+          const settled = new Set(window.__soakEvents.filter(e => ['save-resolve', 'save-reject'].includes(e.type)).map(e => e.call));
+          return window.__soakEvents.filter(e => e.type === 'save-call' && !settled.has(e.call)).length;
+        })).toBe(0);
         await page.context().setOffline(true);
         // Guarantee a durable unsent save before this phone is closed.
         const pending = `${tag}-p${i}-pending${counter++}`;
