@@ -7,7 +7,7 @@ Raw logs, traces, screenshots, JSON reports and downloaded tools stay outside gi
 
 | Suite | Browser/seeds | Runs | Pass | Fail | Observed flaky cases |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Chaos | Chromium 1–10 | 10 | 2 | 8 | Not yet measured by identical-seed reruns |
+| Chaos plus representative reruns | Chromium 1–10, plus four reruns | 14 | 3 | 11 | 1 (seed 4) |
 | Sync/offline regressions | Chromium, 25 repeats each | 125 | 125 | 0 | 0 |
 | Acknowledged CRUD reload | Chromium, repeats 0–2 | 3 | 3 | 0 | 0 |
 | Two quick adds | Chromium, repeats 0–2 | 3 | 2 | 1 | 1 |
@@ -16,10 +16,10 @@ Raw logs, traces, screenshots, JSON reports and downloaded tools stay outside gi
 Flaky means an observed pass/fail reversal across repetitions, not Playwright's automatic-retry statistic (retries are disabled).
 The quick-add case failed at repeat index 2; indices 0 and 1 passed. All acknowledged offline adds, edits and deletes
 survived reload, reached the backend exactly once/in the expected state, and ended synced on both phones.
-Representative chaos reruns (seed 4 three times and seed 2 once) are still running.
+The initial ten-seed run had two passes (3 and 9) and eight failures. Seed 4 then passed repeat index 0 and failed indices 1 and 2 at step 16 (missing edited row), confirming an observed flake. Seed 2 failed its additional rerun earlier, at its extra offline add, so the original retained-delete outcome was observed once and was not independently reproduced.
 
 Consolidation: seeds 1–4 are from chromium-chaos-final.json; seeds 5–6 from chromium-chaos-tail.json;
-seeds 7–10 from resume-chaos-rest.json. Seeds 3 and 9 passed. Earlier server-loss attempts, including pending-status
+seeds 7–10 from resume-chaos-rest.json. Additional reruns are in repro-missing-row.json and repro-delete.json. Earlier server-loss attempts, including pending-status
 timeouts associated with unavailable local services, are superseded and excluded from this table. They are not confirmed engine failures.
 The regression source is resume-regression.json; focused cases are in resume-focused.json. Raw artifacts stay outside git.
 
@@ -33,11 +33,11 @@ The regression source is resume-regression.json; focused cases are in resume-foc
 2. **Delete not reflected in backend.** Chaos seed 2 completes its operations and reports synced, but exact-set equality
    finds one extra item (phone 0, item 7) which the oracle recorded as deleted.
    Hypothesis: reload immediately after confirmation interrupts the asynchronous delete before durable acceptance.
-   Restart then restores the older server item; the focused acknowledged-delete check passes.
+   Restart may then restore the older server item; the focused acknowledged-delete check passes. The retained-delete outcome remains a single observation because its rerun stopped on a different earlier assertion.
    Reproduce: `bash soak/run.sh chaos 2`.
 3. **Second quick add absent.** Chaos seed 5 step 17 cannot find its extra pending item before closing the phone.
    The focused test “two quick adds retain the second input while the first save finishes” reproduces the absence
-   at repeat index 2: `#items` must contain the second text within 15 seconds, but contains only the first.
+   at repeat index 2 (and seed 2 also stopped on a missing second add in its rerun): `#items` must contain the second text within 15 seconds, but contains only the first.
    Hypothesis: completion of the earlier async submit clears the input after the next text has been entered.
    The next click can then submit an empty field and enqueue nothing; this remains a UI-level attribution hypothesis.
    Reproduce: `bash soak/run.sh focused 3` or `bash soak/run.sh chaos 5`.
@@ -60,3 +60,11 @@ SOAK_OUTPUT=focused npx playwright test -c soak/playwright.config.mjs soak/reloa
 
 An immediate submit click does not prove that an optimistic row has reached durable storage. The focused CRUD probe
 waits for the app's post-save acknowledgement before reloading; report that result separately from raw-submit races.
+
+## Final validation
+
+All soak JavaScript files pass `node --check`; both shell scripts pass `bash -n`.
+All 125 Chromium regression cases passed. Acknowledged CRUD passed 3/3. The rapid-add probe passed 2/3 and failed at index 2.
+The eight initial chaos failures and three further chaos failures are reported without engine fixes or automatic retries.
+WebKit's 135 requested cases remain blocked. No confirmed loss of an acknowledged save was observed in the focused probe;
+that limited result does not establish that the engine is bug-free under all chaos conditions.

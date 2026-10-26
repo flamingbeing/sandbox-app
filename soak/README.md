@@ -1,6 +1,6 @@
 # Network chaos soak
 
-Test-only harness for the pinned app-sync 1.3.10. No engine or application files are changed.
+Test-only harness for the pinned app-sync 1.3.10. No engine or application source code is changed.
 Uses only the demo-sandbox-app emulators. The test server maps emulator ports in its in-memory response;
 all listeners use 8100-8107. One worker limits load. Each seed uses 2-3 isolated phone contexts,
 25 random operations and real 1-60 second blips. Toggle means changing a textual done marker;
