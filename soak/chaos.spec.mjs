@@ -16,6 +16,13 @@ function rng(seed) {   // mulberry32
 }
 const between = (r, lo, hi) => lo + r() * (hi - lo);
 const sleep = ms => new Promise(res => setTimeout(res, ms));
+async function guardDraft(page) {
+  if (!process.env.SOAK_GUARD_QUICK_ADD) return;
+  await expect.poll(() => page.evaluate(() => {
+    const settled = new Set(window.__soakEvents.filter(e => ['save-resolve', 'save-reject'].includes(e.type)).map(e => e.call));
+    return window.__soakEvents.filter(e => e.type === 'save-call' && !settled.has(e.call)).length;
+  })).toBe(0);
+}
 
 async function throttle(page, r, browserName) {
   if (browserName !== 'chromium') return;
@@ -66,6 +73,7 @@ for (const seed of SEEDS) {
       try {
         if (roll < 0.40 || !texts.length) {
           const text = `${tag}-p${i}-${counter++}`;
+          await guardDraft(page);
           await page.fill('#new-text', text);
           await page.click('#add button[type=submit]');
           items.set(text, true); everAdded.add(text);
@@ -119,12 +127,8 @@ for (const seed of SEEDS) {
         await page.reload({ waitUntil: 'commit' });
         await expect(page.locator('#list-view')).toBeVisible({ timeout: 180_000 });
       } else if (c < 0.32) {                   // close and reopen while saves may be unsent
-        // Triage A/B independently of C: do not let an earlier submit clear the extra draft.
-        // This waits only before the *extra* offline add, never before the normal immediate reload.
-        if (process.env.SOAK_GUARD_QUICK_ADD) await expect.poll(() => page.evaluate(() => {
-          const settled = new Set(window.__soakEvents.filter(e => ['save-resolve', 'save-reject'].includes(e.type)).map(e => e.call));
-          return window.__soakEvents.filter(e => e.type === 'save-call' && !settled.has(e.call)).length;
-        })).toBe(0);
+        // Triage A/B independently of C. No wait is added before an immediate reload.
+        await guardDraft(page);
         await page.context().setOffline(true);
         // Guarantee a durable unsent save before this phone is closed.
         const pending = `${tag}-p${i}-pending${counter++}`;
@@ -151,12 +155,13 @@ for (const seed of SEEDS) {
     for (const cdp of sessions) if (cdp) await cdp.send('Network.emulateNetworkConditions', {
       offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
     });
-    for (const p of pages) {
+    const expected = new Set(mine.flatMap(m => [...m.keys()]));
+    await testInfo.attach('oracle', { contentType: 'application/json', body: JSON.stringify({ seed, expected: [...expected] }) });
+    for (const p of process.env.SOAK_STATUS === 'observe' ? [] : pages) {
       await expect.poll(() => p.evaluate(() => window.starter.status), { timeout: 120_000, message: 'status chip ends synced' }).toBe('synced');
     }
 
     if (process.env.SOAK_TRACE && process.env.SOAK_SNAPSHOT !== '0') for (const p of pages) await snapshot(p, `seed=${seed} final`);
-    const expected = new Set(mine.flatMap(m => [...m.keys()]));
     const rows = async () => (await db.list('spaces/_/items')).filter(d => !d._deleted).map(d => d.text).filter(t => t?.startsWith(tag));
     await expect.poll(async () => [...new Set(await rows())].sort().join('\n'), { timeout: 60_000, message: 'backend matches expected' }).toBe([...expected].sort().join('\n'));
     const server = await rows();
@@ -170,7 +175,12 @@ for (const seed of SEEDS) {
       const shown = (await pages[i].locator('#items').innerText()).split('\n').map(l => l.trim()).filter(l => l.startsWith(tag));
       expect(shown.length, `phone ${i} shows no duplicate`).toBe(new Set(shown).size);
       for (const d of everDeleted) expect(shown, `phone ${i}: deleted item gone`).not.toContain(d);
-      await expect(pages[i].locator('#status')).toHaveAttribute('data-state', 'synced');
+      if (process.env.SOAK_STATUS !== 'observe') await expect(pages[i].locator('#status')).toHaveAttribute('data-state', 'synced');
     }
+    await testInfo.attach('data-equality-result', { contentType: 'application/json', body: JSON.stringify({
+      seed, expected: [...expected], backend: server,
+      chips: await Promise.all(pages.map(p => p.evaluate(() => window.starter.status))),
+      fullStatusCheck: process.env.SOAK_STATUS !== 'observe',
+    }) });
   });
 }
