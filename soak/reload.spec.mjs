@@ -1,5 +1,5 @@
 // Triage: separate a submit-click race from loss of an accepted durable outbox save.
-import { test, expect, signIn, signInAgain, synced, uniq, APP, db } from '../e2e/fixtures.mjs';
+import { test, expect, signIn, signInAgain, synced, uniq, APP, db, snapshot } from './observe.mjs';
 
 test('accepted offline add, edit and delete survive reloads before slow uploads', async ({ phone, browserName }) => {
   test.setTimeout(300_000);
@@ -29,6 +29,7 @@ test('accepted offline add, edit and delete survive reloads before slow uploads'
   await a.context().setOffline(false);
   if (cdp) await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 2000,
     downloadThroughput: 500 * 1000 / 8, uploadThroughput: 50 * 1000 / 8 });
+  if (process.env.SOAK_TRACE) await snapshot(a, 'accepted-before-reload');
   await a.reload({ waitUntil: 'commit' });
   await expect(a.locator('#list-view')).toBeVisible({ timeout: 180_000 });
   if (cdp) await cdp.send('Network.emulateNetworkConditions', {
@@ -57,7 +58,8 @@ test('accepted offline add, edit and delete survive reloads before slow uploads'
     await a.context().setOffline(false);
     if (cdp) await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 2000,
       downloadThroughput: 500 * 1000 / 8, uploadThroughput: 50 * 1000 / 8 });
-    await a.reload({ waitUntil: 'commit' });
+    if (process.env.SOAK_TRACE) await snapshot(a, 'accepted-before-reload');
+  await a.reload({ waitUntil: 'commit' });
     await expect(a.locator('#list-view')).toBeVisible({ timeout: 180_000 });
     if (cdp) await cdp.send('Network.emulateNetworkConditions', {
       offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
@@ -93,6 +95,7 @@ test('two quick adds retain the second input while the first save finishes', asy
   await page.context().setOffline(true);
   await page.fill('#new-text', second);
   await page.click('#add button[type=submit]');
+  if (process.env.SOAK_TRACE) await snapshot(page, 'quick-adds-before-assertion');
   await expect(page.locator('#items'), 'second add remains visible while offline').toContainText(second);
   await page.context().setOffline(false);
   if (cdp) await cdp.send('Network.emulateNetworkConditions', {

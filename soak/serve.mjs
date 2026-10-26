@@ -30,6 +30,22 @@ const env = {
       let body = await fs.readFile(file);
       // Test-only port mapping; the checked-in application remains unchanged.
       if (file.endsWith('/src/roles.js')) body = Buffer.from(body.toString().replace('fs || 8080', 'fs || 8101').replace('auth || 9099', 'auth || 8102'));
+      // Optional observation at the public app-sync boundary. No engine implementation is changed.
+      if (process.env.SOAK_TRACE && file.endsWith('/src/cloud.js')) body = Buffer.from(body.toString().replace('  await app.ready;', `
+  await app.ready;
+  const originalSave = app.sync.save.bind(app.sync);
+  app.sync.save = (...args) => {
+    const [kind, scope, record] = args;
+    const call = crypto.randomUUID();
+    window.__soakTrace?.({ type: 'save-call', call, kind, record });
+    const promise = originalSave(...args);
+    promise.then(
+      () => window.__soakTrace?.({ type: 'save-resolve', call, record }),
+      error => window.__soakTrace?.({ type: 'save-reject', call, record, error: String(error) })
+    );
+    return promise;
+  };
+`));
       if (file.endsWith(`${path.sep}sw.js`) && bump) body = Buffer.concat([body, Buffer.from(`\n// test bump ${bump}\n`)]);
       return new Response(body, { headers: { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' } });
     } catch { return new Response('', { status: 404 }); }
