@@ -124,3 +124,15 @@ but phone 2 still held/showed the deleted record and reported synced. Its origin
 its IndexedDB delete job was synced/accepted, while the receiving phone had the record and no local job for it.
 This differs from the earlier job's backend-retained-delete observation. The full-snapshot model proves an engine
 bug with the same UI phenotype; exact callback ordering in this browser occurrence was not traced.
+
+
+### Primary run selection (fixed before the tail finishes)
+
+The final requested 70 chaos cases are repetitions 0–3 of every requested seed from `round3-ab-fresh` (server 8103,
+four workers), plus repetitions 4–9 from `round3-ab-tail` (server 8109, six workers, local repeat 0–5 with offset 4).
+Both use the fresh Firestore on 8104/8108, the same pinned engine, full 25 steps and unscaled 1–60 second blips,
+new-draft guards, exact backend/UI assertions, observed chip status and scenario cleanup. Tail global setup does not
+clear the concurrently running primary data. Any first-batch repetitions beyond 3 are diagnostic extras and are
+excluded from primary totals. Repetition identity is recorded by the tail fixture annotation.
+The split keeps all requested repetitions within the job deadline; peak concurrency is ten scenarios, with bounded
+made-up data. Earlier emulator-saturated, interrupted or setup-only attempts remain excluded.

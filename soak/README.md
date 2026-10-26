@@ -110,3 +110,9 @@ If a job-owned Firestore emulator becomes unhealthy, an isolated instance can us
 existing demo Auth emulator on 8102. Start the portable JAR in a separate terminal with its working directory/logs
 under TEMP, using `--host 127.0.0.1 --port 8104 --websocket_port 8108 --project_id demo-sandbox-app --rules <absolute-path-to-app/firestore.rules> --single_project_mode true`.
 Set `SOAK_PORT=8103 SOAK_FIRESTORE_HOST=127.0.0.1:8104` for Playwright. No other ports or live projects are allowed.
+
+A split batch may use test-server port 8109 with `SOAK_PORT=8109`, the same `SOAK_FIRESTORE_HOST=127.0.0.1:8104`,
+and `PW_NO_EMULATOR=1` to preserve another batch's data. `SOAK_REPEAT_OFFSET=4` labels local repeats 0–5 as logical
+repetitions 4–9. Use distinct output names and define the primary selection before aggregating overlapping runs.
+The Node regression `node --test soak/tombstone-full.node.spec.mjs` independently proves that a delayed first full
+snapshot can resurrect a version already covered by a tombstone; its ten cases intentionally fail on 1.3.11.
