@@ -5,7 +5,7 @@ import path from 'node:path';
 
 export const test = base.extend({
   phone: async ({ phone }, use, info) => {
-    const dir = info.outputPath('..');
+    const dir = info.outputPath();
     fs.mkdirSync(dir, { recursive: true });
     const log = path.join(dir, `evidence-${info.repeatEachIndex}-${info.title.replace(/[^a-z0-9]+/gi, '-')}.jsonl`);
     let sequence = 0;
