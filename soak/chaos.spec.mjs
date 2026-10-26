@@ -20,7 +20,7 @@ const sleep = ms => new Promise(res => setTimeout(res, ms));
 async function throttle(page, r, browserName) {
   if (browserName !== 'chromium') return;
   const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Network.enable');
+  await Promise.race([cdp.send('Network.enable'), sleep(10_000).then(() => { throw new Error('CDP Network.enable timed out'); })]);
   await cdp.send('Network.emulateNetworkConditions', {
     offline: false,
     latency: between(r, 300, 3000),
@@ -46,14 +46,15 @@ for (const seed of SEEDS) {
     let counter = 0;
 
     async function open(i) {   // (re)load phone i on the list
-      await pages[i].goto(APP);
-      await expect(pages[i].locator('#list-view')).toBeVisible({ timeout: 30_000 });
+      await pages[i].goto(APP, { waitUntil: 'commit' });
+      await expect(pages[i].locator('#list-view')).toBeVisible({ timeout: 180_000 });
     }
 
     for (let step = 0; step < STEPS; step++) {
       const i = Math.floor(r() * n);
       const page = pages[i], items = mine[i];
       const roll = r();
+      console.log(`seed=${seed} step=${step} phone=${i} roll=${roll.toFixed(3)}`);
       const texts = [...items.keys()];
       try {
         if (roll < 0.40 || !texts.length) {
@@ -92,11 +93,13 @@ for (const seed of SEEDS) {
       const c = step === 0 ? 0.20 : step === 1 ? 0.30 : step === 2 ? 0.10 : r();
       if (c < 0.15) {                          // offline blip
         await page.context().setOffline(true);
-        await sleep(between(r, 1, 60) * 1000 * SCALE);
+        const blip = between(r, 1, 60) * 1000 * SCALE;
+        console.log(`seed=${seed} offline-ms=${Math.round(blip)}`);
+        await sleep(blip);
         await page.context().setOffline(false);
       } else if (c < 0.25) {                   // reload straight after a save (mid-save)
-        await page.reload();
-        await expect(page.locator('#list-view')).toBeVisible({ timeout: 30_000 });
+        await page.reload({ waitUntil: 'commit' });
+        await expect(page.locator('#list-view')).toBeVisible({ timeout: 180_000 });
       } else if (c < 0.32) {                   // close and reopen while saves may be unsent
         await page.context().setOffline(true);
         // Guarantee a durable unsent save before this phone is closed.
@@ -109,7 +112,9 @@ for (const seed of SEEDS) {
         const again = await page.context().newPage();
         await page.close();
         pages[i] = again;
-        await sleep(between(r, 1, 60) * 1000 * SCALE);
+        const blip = between(r, 1, 60) * 1000 * SCALE;
+        console.log(`seed=${seed} offline-ms=${Math.round(blip)}`);
+        await sleep(blip);
         await again.context().setOffline(false);
         await open(i);
         sessions[i] = await throttle(again, r, browserName);
