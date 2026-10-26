@@ -10,7 +10,7 @@ Raw logs, traces, screenshots, JSON reports and downloaded tools stay outside gi
   seed 5 failed to show its second quick offline add. These are candidates requiring acceptance-boundary triage.
 - Repeat seeds 7–10: previous attempts were affected by an unavailable HTTP server. Do not count connection-refused
   errors or the associated pending-status timeouts as confirmed engine failures.
-- Chromium fallback: sync.spec.mjs and offline.spec.mjs, repeat-each=25 (125 cases), running in resume-regression.
+- Chromium fallback: sync.spec.mjs and offline.spec.mjs, repeat-each=25: all 125 passed, no failures or observed flakes (8.7 minutes).
 - Focused accepted CRUD reload and overlapping-add probes remain to run, repeat-each=3.
 - WebKit launch is blocked by missing host libraries. No system packages were installed.
 
