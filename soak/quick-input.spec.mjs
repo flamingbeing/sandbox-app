@@ -18,7 +18,7 @@ test('C: completing the first offline add must preserve the next draft', async (
   await expect.poll(() => page.evaluate(() => window.__soakEvents.filter(e => e.type === 'save-resolve').length)).toBe(1);
   const before = await snapshot(page, 'first-resolved-next-draft');
   expect(before.events.filter(e => e.type === 'save-call')).toHaveLength(1);
-  // Clicking now reproduces the empty second submission after the earlier completion clears it.
+  // The earlier completion cleared the required field, so native validation blocks the next submit.
   await page.click('#add button[type=submit]');
   const after = await snapshot(page, 'second-submit');
   expect(after.events.filter(e => e.type === 'save-call'), 'the second draft must reach app-sync').toHaveLength(2);

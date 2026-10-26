@@ -82,8 +82,7 @@ The full 70-case chaos batch (ten repeats of seeds 1, 2, 4, 6, 7, 8, 10) is runn
 The original one-worker seed-4 prefix is also being checked without a pre-reload read to test for observer effects.
 
 Confirmed bug: `app/src/screens/list.js`, `listScreen`, async `submit` listener (lines 55–61).
-The first save resolves, then line 60 unconditionally clears a newer draft. The next submit reads an empty string and
-returns without calling app-sync. Minimal regression: `soak/quick-input.spec.mjs`; replay `bash soak/run.sh minimal 1`.
+The first save resolves, then line 60 unconditionally clears a newer draft. The next click finds an empty required field, so native validation blocks submission and no second app-sync call occurs. Minimal regression: `soak/quick-input.spec.mjs`; replay `bash soak/run.sh minimal 1`.
 In all ten minimal runs, IndexedDB holds the first accepted pending change; no second save call or second queue entry exists.
 The instrumentation schedules no artificial promise delays and changes no engine code.
 
@@ -115,7 +114,7 @@ versions at or below the known tombstone. Independent items/bin listeners can de
 then the items listener's earlier first server snapshot. The known deleted version returns to UI and device storage.
 
 Minimal real-engine model: `soak/tombstone-full.node.spec.mjs`, 10/10 fail on the installed 1.3.11 source.
-Replay: `node --test soak/tombstone-full.node.spec.mjs`. No engine files, promise delays or snapshots are patched.
+Replay: `node --test soak/tombstone-full.node.spec.mjs`. No engine files are changed; the model explicitly supplies ordered listener callbacks.
 The model uses an in-memory store and explicitly ordered listener callbacks; it is not an emulator replay.
 Evidence: cached row stamp 100 → tombstone 100 removes it → first server full snapshot with stamp 100 restores it.
 

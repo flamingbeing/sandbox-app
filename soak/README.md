@@ -84,7 +84,7 @@ reload/close. Firebase Auth databases are excluded. The JSONL evidence, browser 
 Snapshots are asynchronous observations and can affect a race; a snapshot showing an optimistic row alone does
 not prove acceptance. Check the save resolution and queue entry as well. Backend reads paginate all results.
 
-`quick-input.spec.mjs` pins the order “submit first draft, enter next draft, finish first save, submit next draft”.
+`quick-input.spec.mjs` pins the order “submit first draft, enter next draft, finish first save, attempt next add”.
 It uses the real engine and IndexedDB, with no mocked save or artificial delay. Its failure is intentional until
 the application submit handler preserves a newer draft. Keep this result separate from the natural quick-add rerun.
 
