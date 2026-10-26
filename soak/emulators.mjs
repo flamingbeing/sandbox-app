@@ -9,7 +9,7 @@ if (spawnSync('java', ['-version'], { stdio: 'ignore' }).status !== 0) {
 const tmp = await mkdtemp(path.join(process.env.TEMP || os.tmpdir(), 'sandbox-soak-'));
 await writeFile(path.join(tmp, 'firebase.json'), JSON.stringify({
   firestore: { rules: path.resolve('app/firestore.rules') },
-  emulators: { firestore: { port: 8101 }, auth: { port: 8102 }, hub: { port: 8103 }, logging: { port: 8104 }, ui: { enabled: false }, singleProjectMode: true },
+  emulators: { firestore: { port: 8101, websocketPort: 8105 }, auth: { port: 8102 }, hub: { port: 8103 }, logging: { port: 8104 }, ui: { enabled: false }, singleProjectMode: true },
 }));
 const child = spawn('npx', ['--yes', 'firebase-tools@15.33.0', 'emulators:start', '--config', path.join(tmp, 'firebase.json'), '--only', 'firestore,auth', '--project', 'demo-sandbox-app'], {
   cwd: tmp, stdio: 'inherit', env: { ...process.env, FIREBASE_CLI_DISABLE_USAGE_REPORTING: 'true' },
