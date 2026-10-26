@@ -10,7 +10,7 @@ const decode = v => 'stringValue' in v ? v.stringValue : 'booleanValue' in v ? v
   : 'mapValue' in v ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, decode(x)])) : undefined;
 export const db = { ...baseDb, async list(collection) {
   const host = process.env.FIRESTORE_EMULATOR_HOST;
-  if (host !== '127.0.0.1:8101') throw new Error('Soak oracle requires the local demo emulator');
+  if (!['127.0.0.1:8101', '127.0.0.1:8104'].includes(host)) throw new Error('Soak oracle requires the local demo emulator');
   const result = [];
   let token = '';
   do {

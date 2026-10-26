@@ -3,8 +3,10 @@ import { defineConfig } from '@playwright/test';
 import path from 'node:path';
 import os from 'node:os';
 const root = path.resolve(import.meta.dirname, '..');
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8101';
+process.env.FIRESTORE_EMULATOR_HOST = process.env.SOAK_FIRESTORE_HOST || '127.0.0.1:8101';
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:8102';
+const port = Number(process.env.SOAK_PORT || 8100);
+if (![8100, 8103].includes(port) || !['127.0.0.1:8101', '127.0.0.1:8104'].includes(process.env.FIRESTORE_EMULATOR_HOST)) throw new Error('Soak ports must be job-local');
 export default defineConfig({
   testDir: root,
   testMatch: ['soak/chaos.spec.mjs', 'soak/reload.spec.mjs', 'soak/quick-input.spec.mjs', 'soak/delete-boundary.spec.mjs', 'e2e/sync.spec.mjs', 'e2e/offline.spec.mjs'],
@@ -13,10 +15,10 @@ export default defineConfig({
   outputDir: path.join(process.env.TEMP || os.tmpdir(), process.env.SOAK_OUTPUT || 'sandbox-soak-results'),
   reporter: [['list'], ['json', { outputFile: path.join(process.env.TEMP || os.tmpdir(), `${process.env.SOAK_OUTPUT || 'sandbox-soak-results'}.json`) }]],
   globalSetup: path.join(root, 'e2e/global-setup.mjs'),
-  use: { navigationTimeout: 30_000, actionTimeout: 15_000, baseURL: 'http://localhost:8100', trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+  use: { navigationTimeout: 30_000, actionTimeout: 15_000, baseURL: `http://localhost:${port}`, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   projects: ['chromium', 'webkit'].map(browserName => ({ name: browserName, use: { browserName, launchOptions: browserName === 'chromium' ? { args: ['--no-zygote', '--renderer-process-limit=3', '--disable-gpu'] } : {} } })),
   webServer: [
-    { command: 'node soak/emulators.mjs', cwd: root, url: 'http://127.0.0.1:8101', reuseExistingServer: true, timeout: 180_000, gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 } },
-    { command: 'node soak/serve.mjs', cwd: root, url: 'http://127.0.0.1:8100/app/', reuseExistingServer: !!process.env.SOAK_REUSE_SERVER, stdout: 'pipe', stderr: 'pipe', timeout: 30_000 },
+    { command: 'node soak/emulators.mjs', cwd: root, url: `http://${process.env.FIRESTORE_EMULATOR_HOST}`, reuseExistingServer: true, timeout: 180_000, gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 } },
+    { command: `node soak/serve.mjs ${port}`, cwd: root, url: `http://127.0.0.1:${port}/app/`, reuseExistingServer: !!process.env.SOAK_REUSE_SERVER, stdout: 'pipe', stderr: 'pipe', timeout: 30_000 },
   ],
 });
