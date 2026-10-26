@@ -93,10 +93,24 @@ still assert. Chip status is recorded separately (`SOAK_STATUS=observe`); passes
 Scenario cleanup closes clients, then deletes only its own made-up item/bin records. Logs, traces and JSON reports
 remain in TEMP, with emulator/server logs capped at 1 MiB and continuously drained.
 
-A completed 60/60 focused reruns: seeds 1, 4, 6, 7, 8 and 10 each passed 10/10. B seed 2 is pending. Primary reports are `round3-boundary-1.json`, `round3-boundary-4.json` and `round3-boundary-<seed>-final.json` for the continuation.
-Previously completed controls are retained, not rerun: natural quick adds 10/10 pass; acknowledged offline CRUD
-10/10 pass; immediate offline delete/reload 10/10 pass; slow unresolved delete/reload 10/10 pass.
-The UI minimal regression failed 10/10; the independent real-engine tombstone model failed 10/10.
+Completed at 05:42 SGT. Chromium was the only executed browser. Every primary case ran once, with no retries or skipped cases.
+
+| Suite on 1.3.11 | Runs | Pass | Fail | Finding |
+| --- | ---: | ---: | ---: | --- |
+| A: seeds 1/4/6/7/8/10, ten boundary prefixes each | 60 | 60 | 0 | Original missing-row failure did not reproduce |
+| B: seed 2, ten shortened-dwell 25-operation cases | 10 | 10 | 0 | Original backend-retained delete did not reproduce |
+| C: original natural quick-add probe | 10 | 10 | 0 | Natural failure did not reproduce in this batch |
+| C: pinned next-draft interleaving | 10 | 0 | 10 | Confirmed sandbox-app UI bug |
+| Independent tombstone/full-snapshot engine model | 10 | 0 | 10 | Confirmed app-sync bug; not proven to cause original B |
+| Acknowledged offline add/edit/delete control | 10 | 10 | 0 | Durable accepted saves survived reload |
+| Immediate offline delete/reload control | 10 | 10 | 0 | Resolved durable deletes survived reload |
+| Slow unresolved delete/reload control | 10 | 10 | 0 | Durable queued deletes survived reload before resolution |
+
+Primary reports are `round3-boundary-1.json`, `round3-boundary-4.json` and `round3-boundary-<seed>-final.json` for
+seeds 6/7/8/10/2. All seven primary emulator logs were checked: no 10,001-message overflow or transaction-lock timeout.
+Previously completed controls and minimal regressions were retained across job resumptions, not rerun.
+The full-duration 70-case soak was not cleanly completed; the completed counts above use the disclosed narrowed protocol.
+A/B's original causes remain unconfirmed. A pre-acceptance harness race remains possible, not established as their cause.
 
 ### Save and storage boundary evidence
 
@@ -105,6 +119,10 @@ had not resolved in all 120. Its requested version was already in the outbox in 
 absent from both outbox and item store at that instant. All 60 cases nevertheless reached exact backend/UI equality.
 This is a pre-acceptance timing boundary, not evidence of an acknowledged save disappearing. The read can let a
 later enqueue finish before navigation; the seven absent snapshots must not be described as confirmed data loss.
+
+The ten primary B cases supplied 40 pre-reload snapshots. The latest observed item-save call was unresolved in
+all 40 and its version was in the outbox in all 40; ten of those calls were deletes. All cases then matched both
+backend and every phone exactly, with no retained deleted item.
 
 The completed B controls show a delete call plus a durable tombstone before reload in all 20 cases: the offline
 variant had resolved (10/10), while the slow-network variant was still unresolved (10/10). All 20 deletions reached
@@ -149,8 +167,7 @@ excluded from the primary narrowed totals. The earlier unprobed seed-4 step-1 co
 timeout, with no original missing-row failure. Initial quick-add attempts with an outdated CSP hash are excluded.
 Read IndexedDB as requested, but remember that its read transaction can let a pending enqueue finish before reload.
 An optimistic row or click is not proof of a resolved/durable save. No loss of an acknowledged engine save has been
-established by the completed durability controls. Original A and backend-retained-delete B remain unconfirmed until
-the narrowed reruns finish; model and UI regressions above are independently reproducible.
+established by the completed durability controls. Original A and backend-retained-delete B did not reproduce in the completed narrowed runs; their causal attribution remains unconfirmed. The model and UI regressions above are independently reproducible.
 
 ### Replays and validation
 
@@ -165,5 +182,4 @@ node --test soak/tombstone-full.node.spec.mjs
 ```
 
 The supervisor defaults to a 35-minute cap; SOAK_SEEDS, SOAK_REPEATS, SOAK_WORKERS and SOAK_LIMIT_MINUTES allow
-resuming only unfinished batches. Assertions have no retries. Source syntax, shell syntax, typecheck and generated
-service-worker consistency checks are recorded with final totals.
+resuming only unfinished batches. Assertions have no retries. All soak JavaScript and shell syntax checks passed; TypeScript typecheck passed; the generated service-worker list is up to date. `app/src` and Worker source are unchanged from the starting branch. Life remains unchanged; all work is committed locally, with no push.
