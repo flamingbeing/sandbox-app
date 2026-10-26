@@ -1,7 +1,7 @@
 // B without the preceding rapid-add race: reload immediately after the delete confirmation.
 import { test, expect, signIn, synced, snapshot, uniq, APP, db } from './observe.mjs';
 
-test('B: immediate confirmed delete survives reload with a pre-reload outbox read', async ({ phone }) => {
+for (const mode of ['offline', 'slow']) test(`B: ${mode} confirmed delete survives reload with a pre-reload outbox read`, async ({ phone }) => {
   test.setTimeout(180_000);
   const page = await phone();
   await signIn(page, 'member');
@@ -14,7 +14,14 @@ test('B: immediate confirmed delete survives reload with a pre-reload outbox rea
   await expect(page.locator('#new-text')).toHaveValue('');
   await expect.poll(async () => (await db.list('spaces/_/items')).filter(d => d.text === text).length).toBe(1);
   await synced(page);
-  await page.context().setOffline(true);
+  let cdp;
+  if (mode === 'offline') await page.context().setOffline(true);
+  else {
+    cdp = await page.context().newCDPSession(page);
+    await cdp.send('Network.enable');
+    await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 2000,
+      downloadThroughput: 500 * 1000 / 8, uploadThroughput: 50 * 1000 / 8 });
+  }
   await page.getByRole('button', { name: text, exact: true }).click();
   await page.click('#edit-delete');
   await page.getByRole('button', { name: 'Delete', exact: true }).last().click();
@@ -23,6 +30,8 @@ test('B: immediate confirmed delete survives reload with a pre-reload outbox rea
   await page.reload({ waitUntil: 'commit' });
   await expect(page.locator('#list-view')).toBeVisible();
   await page.context().setOffline(false);
+  if (cdp) await cdp.send('Network.emulateNetworkConditions', {
+    offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
   await expect.poll(async () => (await db.list('spaces/_/items')).filter(d => !d._deleted && d.text === text).length,
     { timeout: 60_000 }).toBe(0);
   await synced(page);
