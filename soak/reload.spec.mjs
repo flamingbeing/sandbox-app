@@ -74,3 +74,31 @@ test('accepted offline add, edit and delete survive reloads before slow uploads'
   }
 
 });
+
+test('two quick adds retain the second input while the first save finishes', async ({ phone, browserName }) => {
+  test.setTimeout(120_000);
+  const page = await phone();
+  await signIn(page, 'member');
+  await synced(page);
+  let cdp;
+  if (browserName === 'chromium') {
+    cdp = await page.context().newCDPSession(page);
+    await cdp.send('Network.enable');
+    await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 2000,
+      downloadThroughput: 500 * 1000 / 8, uploadThroughput: 50 * 1000 / 8 });
+  }
+  const first = uniq('quick-first'), second = uniq('quick-second');
+  await page.fill('#new-text', first);
+  await page.click('#add button[type=submit]');
+  await page.context().setOffline(true);
+  await page.fill('#new-text', second);
+  await page.click('#add button[type=submit]');
+  await expect(page.locator('#items'), 'second add remains visible while offline').toContainText(second);
+  await page.context().setOffline(false);
+  if (cdp) await cdp.send('Network.emulateNetworkConditions', {
+    offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  for (const text of [first, second]) await expect.poll(async () =>
+    (await db.list('spaces/_/items')).filter(d => !d._deleted && d.text === text).length,
+    { timeout: 60_000, message: `${text.startsWith('quick-first') ? 'first' : 'second'} add reaches backend once` }).toBe(1);
+  await synced(page);
+});
