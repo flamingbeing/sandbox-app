@@ -1,5 +1,5 @@
 # Live sign-in smoke test (app-devkit live-smoke): signs the app's test user in on the deployed site and runs
-# e2e-live/signin.live.spec.mjs (signed in, no data, no console errors). Runs by hand and after each successful Deploy.
+# e2e-live/signin.live.spec.mjs (signed in, the list shown, no console errors). Runs by hand and after each successful Deploy.
 # Needs repo secrets SANDBOX_APP_TEST_EMAIL and SANDBOX_APP_TEST_PASSWORD (tools/fill.mjs renames them to <NAME>_TEST_*);
 # without them the run says so and skips. Never runs in the template repo itself.
 name: Live smoke
