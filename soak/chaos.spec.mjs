@@ -12,6 +12,7 @@ const SEEDS = (process.env.SOAK_SEEDS || '1,2,3,4,5,6,7,8,9,10').split(',').map(
 const STEPS = Number(process.env.SOAK_STEPS || 25);
 const SCALE = Number(process.env.SOAK_TIME_SCALE || 1);   // blips of 1-60 s run at SCALE x real time (set 1 for full length)
 const BOUNDARY = { 1: 14, 4: 2, 6: 14, 7: 4, 8: 23, 10: 15, 2: 25 };
+test.skip(!!process.env.SOAK_FOCUS && fs.existsSync(path.join(process.env.TEMP, 'round3-pause')), 'Focused batch pause requested');
 
 function rng(seed) {   // mulberry32
   let a = seed >>> 0;
