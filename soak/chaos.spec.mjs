@@ -88,7 +88,8 @@ for (const seed of SEEDS) {
       }
 
       // chaos between steps
-      const c = r();
+      // Every seed covers reload, unsent close/reopen, and a full offline blip.
+      const c = step === 0 ? 0.20 : step === 1 ? 0.30 : step === 2 ? 0.10 : r();
       if (c < 0.15) {                          // offline blip
         await page.context().setOffline(true);
         await sleep(between(r, 1, 60) * 1000 * SCALE);
