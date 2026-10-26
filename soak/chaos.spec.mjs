@@ -131,7 +131,7 @@ for (const seed of SEEDS) {
 
     // settle: everyone online, wait for every chip to say synced
     for (const p of pages) await p.context().setOffline(false);
-    for (const cdp of sessions) if (cdp) cdp.soakConditions = {
+    for (const cdp of sessions) if (cdp) await cdp.send('Network.emulateNetworkConditions', {
       offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
     });
     for (const p of pages) {
