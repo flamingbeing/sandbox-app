@@ -32,8 +32,10 @@ export const test = base.extend({
     fs.mkdirSync(dir, { recursive: true });
     const log = path.join(dir, `evidence-${info.repeatEachIndex}-${info.title.replace(/[^a-z0-9]+/gi, '-')}.jsonl`);
     let sequence = 0;
+    const contexts = [];
     await use(async () => {
       const page = await phone();
+      contexts.push(page.context());
       const phoneId = sequence++;
       await page.context().exposeBinding('__soakEmit', (source, event) => {
         fs.appendFileSync(log, JSON.stringify({ phone: phoneId, ...event }) + '\n');
@@ -56,6 +58,11 @@ export const test = base.extend({
       });
       return page;
     });
+    if (process.env.SOAK_TRACE && info.status !== info.expectedStatus) {
+      for (const context of contexts) for (const page of context.pages()) {
+        await snapshot(page, 'failure-teardown').catch(() => {});
+      }
+    }
   },
 });
 
@@ -89,7 +96,7 @@ export async function snapshot(page, label) {
       } finally { database.close(); }
     }
     const result = { type: 'snapshot', label, databases, input: document.querySelector('#new-text')?.value,
-      items: document.querySelector('#items')?.innerText, status: window.starter?.status,
+      items: document.querySelector('#items')?.innerText, status: window.starter?.status, ready: window.starter?.ready,
       events: [...window.__soakEvents].filter(e => !e.type.startsWith('snapshot')) };
     window.__soakTrace(result);
     return result;
