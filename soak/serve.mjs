@@ -6,6 +6,8 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
+import { IMPORT_MAP } from '../worker/headers.js';
 import { fileURLToPath } from 'node:url';
 import worker from '../worker/sites.js';
 import { memoryBucket } from '../e2e/memory-bucket.mjs';
@@ -15,6 +17,9 @@ const PORT = Number(process.argv[2] || process.env.PORT || 8100);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const APP_DIR = process.env.APP_DIR ? path.resolve(ROOT, process.env.APP_DIR) : '';
+// The dependency bump changes the inline import map. Match its hash in the test response only.
+const html = await fs.readFile(path.join(ROOT, 'app/index.html'), 'utf8');
+const importMapHash = `'sha256-${crypto.createHash('sha256').update(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).digest('base64')}'`;
 let bump = 0;
 
 const env = {
@@ -59,7 +64,11 @@ http.createServer(async (req, res) => {
   for await (const c of req) chunks.push(c);
   const r = await worker.fetch(new Request(`http://localhost:${PORT}${req.url}`, {
     method: req.method, headers: req.headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks) }), env);
-  res.writeHead(r.status, Object.fromEntries(r.headers));
+  const headers = Object.fromEntries(r.headers);
+  for (const name of ['content-security-policy', 'content-security-policy-report-only']) {
+    if (headers[name]) headers[name] = headers[name].replace(IMPORT_MAP, importMapHash);
+  }
+  res.writeHead(r.status, headers);
   res.end(Buffer.from(await r.arrayBuffer()));
   } catch (error) {
     console.error('test server request failed:', req.url, error.message);
