@@ -9,7 +9,7 @@ export const db = fsAdmin('demo-sandbox-app');
 export const APP = '/app/?emulator';
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-// SYNC_DIR: a local app-sync build (its index.js and src/) served in place of core.anawj.com/sync/<version>/, so
+// SYNC_DIR: a local app-sync build (its entry files and src/) served in place of core.anawj.com/sync/<version>/, so
 // app-sync's CI can run these tests against a candidate before it is released (its consumer-test job).
 const SYNC_DIR = process.env.SYNC_DIR ? path.resolve(process.env.SYNC_DIR) : '';
 async function routeSync(context, served) {
@@ -32,8 +32,10 @@ export const test = base.extend({
         window.__csp = [];
         addEventListener('securitypolicyviolation', e => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
       });
-      const served = { n: 0 };
+      const served = { n: 0, built: 0 };
       if (SYNC_DIR) await routeSync(context, served);
+      // APP_DIR (a Vite build, e2e/serve.mjs): count the built bundle's loads, so the run proves it tested dist/
+      if (process.env.APP_DIR) context.on('request', r => { if (/\/app\/assets\/[^/]+\.js$/.test(r.url())) served.built++; });
       const page = await context.newPage();
       made.push({ context, page, served });
       return page;
@@ -43,6 +45,7 @@ export const test = base.extend({
       await context.close();
       expect(v, 'CSP violations').toEqual([]);
       if (SYNC_DIR) expect(served.n, 'app-sync files served from SYNC_DIR').toBeGreaterThan(0);
+      if (process.env.APP_DIR) expect(served.built, 'the built bundle (APP_DIR) loaded').toBeGreaterThan(0);
     }
   },
 });
@@ -54,7 +57,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
   const email = `${uniq('u')}@example.com`;
   await page.goto(path);
   await expect(page.locator('#signed-out')).toBeVisible();
-  await page.evaluate(e => import('./cloud.js').then(m => m.emulatorSignIn(e)), email);
+  await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#no-access')).toBeVisible();
   const uid = await page.locator('#uid').textContent();
   if (role) {
@@ -69,7 +72,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
 export async function signInAgain(page, email) {
   await page.goto(APP);
   await expect(page.locator('#signed-out')).toBeVisible();
-  await page.evaluate(e => import('./cloud.js').then(m => m.emulatorSignIn(e)), email);
+  await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#list-view')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
 }
@@ -81,3 +84,10 @@ export async function add(page, text) {
 }
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
+// The id of the shared item with this text (db.list leaves document ids out).
+export async function itemIdOf(text) {
+  const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+  const r = await fetch(`http://${host}/v1/projects/demo-sandbox-app/databases/(default)/documents/spaces/_/items?pageSize=300`, { headers: { Authorization: 'Bearer owner' } });
+  const d = ((await r.json()).documents || []).find(x => x.fields?.text?.stringValue === text);
+  return d?.name.split('/').pop();
+}
