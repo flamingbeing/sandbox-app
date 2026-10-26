@@ -2,7 +2,7 @@
 
 Test-only harness for the pinned app-sync 1.3.10. No engine or application files are changed.
 Uses only the demo-sandbox-app emulators. The test server maps emulator ports in its in-memory response;
-all listeners use 8100-8104. One worker limits load. Each seed uses 2-3 isolated phone contexts,
+all listeners use 8100-8107. One worker limits load. Each seed uses 2-3 isolated phone contexts,
 25 random operations and real 1-60 second blips. Toggle means changing a textual done marker;
 the sample application has no boolean done field. Phones own disjoint items to give an exact final-state oracle.
 Every seed forces a reload, a close/reopen with a confirmed queued save, and an offline blip;
@@ -29,12 +29,34 @@ SOAK_SEEDS=1 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.m
 No retries; a failed assertion is not silently retried. Screenshots/traces and generated emulator configuration
 are written to TEMP, not committed. The existing regression cases remain unchanged.
 
-## Validation and blockers
+## Portable Linux setup
 
-Syntax checks and discovery passed: 20 chaos cases, plus five regression cases per browser.
-The requested regression run would execute 125 WebKit cases. No browser tests executed:
-all three execution commands stopped at emulator startup because Java was absent.
-The separate Chromium and WebKit installation attempts were rejected by Playwright 1.56.1:
-`Playwright does not support chromium on ubuntu26.04-x64` (and likewise `webkit`).
-These are infrastructure blockers, not engine failures. There is no passing soak result or flake estimate.
-The new harness still needs runtime validation on a compatible test host; all 145 requested cases remain unrun.
+All downloads and caches below stay beside the checkout. No system packages or credentials are needed.
+
+```sh
+mkdir -p ../runtime/tmp
+curl -fL 'https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse' -o ../runtime/jdk.tar.gz
+tar -xzf ../runtime/jdk.tar.gz -C ../runtime
+. soak/env.sh
+npm ci
+npx playwright install chromium webkit
+mkdir -p .devkit/playwright
+curl -fsSL https://raw.githubusercontent.com/flamingbeing/app-devkit/v1.9.2/playwright/helpers.mjs -o .devkit/playwright/helpers.mjs
+SOAK_OUTPUT=chromium-round1 npx playwright test -c soak/playwright.config.mjs soak/chaos.spec.mjs --project=chromium
+SOAK_OUTPUT=accepted-reload npx playwright test -c soak/playwright.config.mjs soak/reload.spec.mjs --project=chromium --repeat-each=3
+SOAK_OUTPUT=chromium-regression npx playwright test -c soak/playwright.config.mjs e2e/sync.spec.mjs e2e/offline.spec.mjs --project=chromium --repeat-each=25
+```
+
+`env.sh` selects the portable JDK, Ubuntu 24.04 browser builds, and private writable tool caches.
+`SOAK_OUTPUT` gives each execution a separate TEMP trace folder and JSON report; do not share it between simultaneous runs.
+Use one execution and one worker at a time. The optional `SOAK_REUSE_AUTH=1` starts only Firestore when this job's own
+Auth emulator is already running on 8102. The default starts both emulators.
+
+## Interpretation
+
+The random chaos case deliberately permits a reload immediately after a submit click. An optimistic row is not proof
+that the save has reached durable storage. The separate `reload.spec.mjs` case waits until the input clears (the app's
+save promise has resolved), then reloads before the slow upload. Report the two cases separately: an immediate-submit
+race alone does not establish loss of an accepted outbox save.
+
+Execution results are recorded after the run. Raw logs, screenshots, traces, downloaded tools and JSON reports stay outside git.
