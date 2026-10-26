@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: 'list',
   globalSetup: path.join(root, 'e2e/global-setup.mjs'),
   use: { baseURL: 'http://localhost:8100', trace: 'retain-on-failure', screenshot: 'only-on-failure' },
-  projects: ['chromium', 'webkit'].map(browserName => ({ name: browserName, use: { browserName, launchOptions: browserName === 'chromium' ? { args: ['--no-zygote', '--single-process'] } : {} } })),
+  projects: ['chromium', 'webkit'].map(browserName => ({ name: browserName, use: { browserName, launchOptions: browserName === 'chromium' ? { args: ['--no-zygote', '--renderer-process-limit=3', '--disable-gpu'] } : {} } })),
   webServer: [
     { command: 'node soak/emulators.mjs', cwd: root, url: 'http://127.0.0.1:8101', reuseExistingServer: true, timeout: 180_000, gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 } },
     { command: 'node soak/serve.mjs', cwd: root, url: 'http://127.0.0.1:8100/app/', reuseExistingServer: true, timeout: 30_000 },
