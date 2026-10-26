@@ -5,6 +5,8 @@
 // Each phone only edits and deletes the items it added, so the final state is exactly known (no conflict sheets).
 // Made-up data only. Needs the emulators and e2e server the config starts.
 import { test, expect, signIn, signInAgain, db, uniq, APP, snapshot } from './observe.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const SEEDS = (process.env.SOAK_SEEDS || '1,2,3,4,5,6,7,8,9,10').split(',').map(Number);
 const STEPS = Number(process.env.SOAK_STEPS || 25);
@@ -41,6 +43,7 @@ async function throttle(page, r, browserName) {
 
 for (const seed of SEEDS) {
   test(`chaos seed ${seed}`, async ({ phone, browserName }, testInfo) => {
+    test.skip(!!process.env.SOAK_FOCUS && fs.existsSync(path.join(process.env.TEMP, 'round3-pause')), 'Focused batch pause requested');
     test.setTimeout(process.env.SOAK_FOCUS ? 120_000 : 900_000);
     const steps = process.env.SOAK_FOCUS ? BOUNDARY[seed] : STEPS;
     const r = rng(seed);

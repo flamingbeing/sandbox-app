@@ -45,6 +45,7 @@ async function ready(url) {
 }
 try {
   for (const seed of (process.env.SOAK_SEEDS || '1,4,6,7,8,10,2').split(',').map(Number)) {
+    if (fs.existsSync(path.join(temp, 'round3-pause'))) break;
     const name = `round3-boundary-${seed}`;
     const env = { ...process.env, SOAK_OUTPUT: name, SOAK_SEEDS: String(seed), SOAK_FOCUS: '1',
       SOAK_TIME_SCALE: process.env.SOAK_TIME_SCALE || '0.01', SOAK_TRACE: '1', SOAK_GUARD_QUICK_ADD: '1',
