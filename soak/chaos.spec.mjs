@@ -9,6 +9,7 @@ import { test, expect, signIn, signInAgain, db, uniq, APP, snapshot } from './ob
 const SEEDS = (process.env.SOAK_SEEDS || '1,2,3,4,5,6,7,8,9,10').split(',').map(Number);
 const STEPS = Number(process.env.SOAK_STEPS || 25);
 const SCALE = Number(process.env.SOAK_TIME_SCALE || 1);   // blips of 1-60 s run at SCALE x real time (set 1 for full length)
+const BOUNDARY = { 1: 14, 4: 2, 6: 14, 7: 4, 8: 23, 10: 15, 2: 25 };
 
 function rng(seed) {   // mulberry32
   let a = seed >>> 0;
@@ -40,7 +41,8 @@ async function throttle(page, r, browserName) {
 
 for (const seed of SEEDS) {
   test(`chaos seed ${seed}`, async ({ phone, browserName }, testInfo) => {
-    test.setTimeout(900_000);
+    test.setTimeout(process.env.SOAK_FOCUS ? 120_000 : 900_000);
+    const steps = process.env.SOAK_FOCUS ? BOUNDARY[seed] : STEPS;
     const r = rng(seed);
     const tag = uniq(`soak${seed}`);
     const n = 2 + Math.floor(r() * 2);   // 2 or 3 phones
@@ -64,7 +66,7 @@ for (const seed of SEEDS) {
       await expect(pages[i].locator('#list-view')).toBeVisible({ timeout: 180_000 });
     }
 
-    for (let step = 0; step < STEPS; step++) {
+    for (let step = 0; step < steps; step++) {
       const i = Math.floor(r() * n);
       const page = pages[i], items = mine[i];
       const roll = r();
@@ -112,6 +114,8 @@ for (const seed of SEEDS) {
         throw new Error(`seed ${seed} step ${step} phone ${i} roll ${roll.toFixed(3)}: ${e.message}`);
       }
 
+      // A narrowed prefix includes the original failing operation, then stops before unrelated later chaos.
+      if (process.env.SOAK_FOCUS && step === steps - 1) break;
       // chaos between steps
       // Every seed covers reload, unsent close/reopen, and a full offline blip.
       const c = step === 0 ? 0.20 : step === 1 ? 0.30 : step === 2 ? 0.10 : r();
