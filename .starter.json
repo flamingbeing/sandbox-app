@@ -1,12 +1,21 @@
 {
   "template": "flamingbeing/app-starter",
   "version": "0.2.0",
-  "commit": "00109fd",
+  "commit": "8315b24",
   "app": {
     "name": "sandbox-app",
     "host": "sandbox-app.flamingbeing.com",
     "kit": "homedesign",
     "project": "sandbox-app-app",
     "title": "Sandbox app"
+  },
+  "modules": {
+    "files": "../app-starter/recipes/files.json",
+    "search": "../app-starter/recipes/search.json"
+  },
+  "update": {
+    "ignore": [
+      "tools/test/add.test.mjs"
+    ]
   }
 }

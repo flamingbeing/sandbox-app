@@ -8,6 +8,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import worker from '../worker/sites.js';
+// add: e2e imports
 import { memoryBucket } from './memory-bucket.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,6 +22,7 @@ const env = {
   FIREBASE_PROJECT: 'demo-sandbox-app', EMULATOR: '1',
   AUTH_EMULATOR: process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099',
   FIRESTORE_EMULATOR: process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080',
+  // add: e2e env
   FILES: memoryBucket(),
   ASSETS: { async fetch(req) {
     let file = path.join(ROOT, decodeURIComponent(new URL(req.url).pathname));

@@ -24,6 +24,7 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
+    // add: rules
     // A photo or file on an item (@core/files): the record only; the bytes are in the Worker's R2 bucket.
     match /spaces/{g}/files/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
