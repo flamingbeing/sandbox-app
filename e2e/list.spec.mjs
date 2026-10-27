@@ -1,10 +1,10 @@
 // Sign-in, roles from the role doc, and the list: add, edit, delete to the bin.
 import AxeBuilder from './axe.mjs';
-import { test, expect, signIn, add, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, add, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
 
 test('signed out: the sign-in screen, accessible', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP);
+  await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#signed-out')).toBeVisible();
   expect(await AxeBuilder(page)).toEqual([]);
 });
@@ -25,15 +25,14 @@ test('a member adds, edits and deletes; the delete lands in the bin', async ({ p
   await serverHas(t);
   expect(await AxeBuilder(page)).toEqual([]);
 
-  await page.getByRole('button', { name: t }).click();
+  await clickOpens(page.getByRole('button', { name: t }), page.locator('#edit'));
   await page.fill('#edit-text', t + ' edited');
   await page.click('#edit-save');
   await expect(page.locator('#items')).toContainText(t + ' edited');
   await serverHas(t + ' edited');
 
-  await page.getByRole('button', { name: t + ' edited' }).click();
+  await clickOpens(page.getByRole('button', { name: t + ' edited' }), page.locator('#edit'));
   await page.click('#edit-delete');
-  await page.getByRole('button', { name: 'Delete', exact: true }).last().click();   // the confirm
   await expect(page.locator('#items')).not.toContainText(t);
   await expect.poll(async () => (await db.list('spaces/_/bin')).some(b => b.data?.text === t + ' edited'), { timeout: 15_000 }).toBe(true);
   await expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === t + ' edited')).toBe(false);
@@ -60,23 +59,16 @@ test('a role change reaches the page by itself (role doc v ahead of the token)',
 });
 
 // S1: removing someone ends their access, not only their role doc: the Worker deletes the doc and revokes the account
-// (revoked/{uid}: the rules and the files route refuse at once; claims cleared; refresh tokens ended)
-test('an admin removes a member: the page loses the list, writes and uploads are refused, the session ends', async ({ phone }) => {
+// (revoked/{uid}: the rules refuse at once; claims cleared; refresh tokens ended)
+test('an admin removes a member: the page loses the list, writes are refused, the session ends', async ({ phone }) => {
   const admin = await phone(), gone = await phone();
   const { uid: adminUid } = await signIn(admin, 'admin');
   const { uid } = await signIn(gone, 'member');
-  const upload = () => gone.evaluate(async uid => {
-    const { getAuth } = await import('firebase/auth');
-    const t = await getAuth().currentUser?.getIdToken().catch(() => '');
-    return (await fetch(`/api/files/${uid}/f1`, { method: 'PUT', body: 'x', headers: { Authorization: `Bearer ${t}` } })).status;
-  }, uid);
-  expect(await upload()).toBe(201);
   // a page can't delete a role doc any more (the rules), and only admins may ask the Worker
   expect(await gone.evaluate(u => window.starter.members().remove(u), adminUid)).toBe('Admins only.');
   expect(await admin.evaluate(u => window.starter.members().remove(u), uid)).toBe('');
   expect(await db.get(`members/${uid}`)).toBeFalsy();
   expect(await db.get(`revoked/${uid}`)).toBeTruthy();
-  expect(await upload()).toBe(403);
   await expect(gone.locator('#list-view')).toBeHidden({ timeout: 15_000 });
   // after a token refresh the token carries no role; the sessions were ended (validSince: real Firebase then refuses the
   // refresh token and the page signs out; the Auth emulator doesn't check it on refresh, so the test reads the account)

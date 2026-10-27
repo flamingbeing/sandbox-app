@@ -1,13 +1,15 @@
 // The Cloudflare Worker for this repo's address. It serves the repo's files (the static assets, bound as ASSETS),
 // decides which folder an address may see (routes.js), adds the security headers (headers.js), answers /api/claims
 // (claims.js from app-devkit, roles from members.js), /api/members/ (admins set and remove roles, members.js) and
-// /api/files/ (files.js, the R2 bucket bound as FILES), and passes Firebase's sign-in helper pages on to the project.
+// the optional modules' routes (the files recipe: /api/files/, files.js, the R2 bucket bound as FILES), and passes
+// Firebase's sign-in helper pages on to the project.
 // wrangler.jsonc: "run_worker_first" sends every request here; FIREBASE_PROJECT is a var there, the service account
 // (SA_EMAIL, SA_KEY) are Worker secrets.
 import { resolve, publicFile } from './routes.js';
 import { securityHeaders } from './headers.js';
 import { handleCspReport } from './csp-report.js';
 import { admin, handleClaims, verifyIdToken } from './claims.js';
+// add: worker imports
 import { handleFiles } from './files.js';
 import { loadClaims, handleMembers } from './members.js';
 
@@ -23,6 +25,7 @@ export default {
 
     if (url.pathname === '/api/claims') return finish(await claims(request, env, url, local, project));
     if (url.pathname === '/api/csp') return finish(await handleCspReport(request));
+    // add: worker routes
     if (url.pathname.startsWith('/api/files/')) return finish(await files(request, env, url, local, project));
     if (url.pathname.startsWith('/api/members/')) return finish(await members(request, env, url, local, project));
     if (request.method !== 'GET' && request.method !== 'HEAD') return finish(new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } }));
@@ -92,6 +95,7 @@ export async function settledClaims(ask, adm, tries = 3) {
   }
 }
 
+// add: worker handlers
 // The same ID token check as /api/claims (the emulators' unsigned tokens only on localhost with EMULATOR set), and the
 // rules' revoked/{uid} gate, read as the service account (without one, no roles are ever issued).
 function files(request, env, url, local, project) {

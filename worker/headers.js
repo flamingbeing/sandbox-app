@@ -11,7 +11,7 @@ export const CSP_ENFORCE = false;
 
 // The page's import map (app/index.html), the one inline script, allowed by its hash (worker/test/headers.test.mjs
 // says the new one when the map changes).
-export const IMPORT_MAP = "'sha256-cZ7TVtQj82oX4lz9Gs+spAr+DIP4yXSNkI/MoAqb/3U='";
+export const IMPORT_MAP = "'sha256-Sfc+SHvchNRYAk2Uh8Qq07/omd2lKfPTBhHYNgcDuXI='";
 // Shared modules (app-sync, app-update, app-ui: its scripts and style sheets) are served at exact versions from here.
 const CORE = 'https://core.anawj.com';
 // Firebase: the SDK is vendored (app/public/vendor/firebase/<ver>/, served as 'self'); Google sign-in, Firestore and
@@ -26,7 +26,7 @@ const REPORTS = '/api/csp';
 // framedBySelf: the sign-in helper pages, which the app's own page frames from this same address
 export function csp({ kit = KIT, project = '', local = false, framedBySelf = false } = {}) {
   const emulators = local ? ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*'] : [];
-  const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : [])];
+  const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : []), ...emulators.filter(e => e.startsWith('http:'))];   // (WebKit frames the auth emulator)
   const d = {
     'default-src': ["'self'"],
     'script-src': ["'self'", IMPORT_MAP, CORE, GOOGLE_API, kit],

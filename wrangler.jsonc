@@ -22,6 +22,7 @@
   // Workers Logs: keeps console lines such as the CSP reports (worker/csp-report.js) to read in the dashboard
   "observability": { "enabled": true },
   "vars": { "FIREBASE_PROJECT": "sandbox-app-app" },
+  // add: r2
   // the app's files (@core/files; worker/files.js): one private bucket per app, made once before the first deploy
   // (README, "Files"); tools/fill.mjs names it after the app
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "sandbox-app-files" }],
