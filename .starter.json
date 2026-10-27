@@ -1,7 +1,7 @@
 {
   "template": "flamingbeing/app-starter",
   "version": "0.2.0",
-  "commit": "49a8ef4",
+  "commit": "00109fd",
   "app": {
     "name": "sandbox-app",
     "host": "sandbox-app.flamingbeing.com",
