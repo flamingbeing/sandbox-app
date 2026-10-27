@@ -35,8 +35,8 @@ const env = {
       let body = await fs.readFile(file);
       // Test-only port mapping; the checked-in application remains unchanged.
       if (file.endsWith('/src/roles.js')) body = Buffer.from(body.toString().replace('fs || 8080', `fs || ${Number((process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8101').split(':')[1])}`).replace('auth || 9099', 'auth || 8102'));
-      // Optional observation at the public app-sync boundary. No engine implementation is changed.
-      if (process.env.SOAK_TRACE && file.endsWith('/src/cloud.js')) body = Buffer.from(body.toString().replace('  await app.ready;', `
+      // Observation at the public app-sync boundary (chaos waits on it; off only with SOAK_RACE=1 and no SOAK_TRACE). No engine implementation is changed.
+      if ((process.env.SOAK_TRACE || process.env.SOAK_RACE !== '1') && file.endsWith('/src/cloud.js')) body = Buffer.from(body.toString().replace('  await app.ready;', `
   await app.ready;
   const originalSave = app.sync.save.bind(app.sync);
   app.sync.save = (...args) => {

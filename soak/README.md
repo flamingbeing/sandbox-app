@@ -60,6 +60,11 @@ that the save has reached durable storage. The separate `reload.spec.mjs` case w
 save promise has resolved), then reloads before the slow upload. Report the two cases separately: an immediate-submit
 race alone does not establish loss of an accepted outbox save.
 
+Since 27 Oct (app-sync 1.4.0-rc.1 root-cause run, 46 box runs: every lost op was a reload 0-7 ms after the click,
+before its save() resolved; none lost after) each op and the close step wait until the op's own save() has resolved
+before any chaos. `SOAK_RACE=1` restores the immediate-reload probe; a failure there is not an engine loss on its own.
+Note that `SOAK_SNAPSHOT` (on with SOAK_TRACE) reads IndexedDB before reloads and hides that race.
+
 See [RESULTS.md](RESULTS.md) for execution results and failure interpretation. Raw logs, screenshots, traces, downloaded tools and JSON reports stay outside git.
 
 Short commands after portable setup: `bash soak/run.sh chaos 1`, `bash soak/run.sh regression 25`, and `bash soak/run.sh focused 3`.

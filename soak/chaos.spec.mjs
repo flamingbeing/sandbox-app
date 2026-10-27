@@ -20,6 +20,20 @@ function rng(seed) {   // mulberry32
 }
 const between = (r, lo, hi) => lo + r() * (hi - lo);
 const sleep = ms => new Promise(res => setTimeout(res, ms));
+// app-sync promises that a save survives a reload once save() has resolved (stored on the device). Each op and the
+// close step's pending add wait for that before any chaos; an edit calls save() a few ms after its click, so wait
+// for the op's own call, not just "nothing unsettled". SOAK_RACE=1 keeps the old reload-straight-after-the-click
+// probe (it can lose that last op by design: 27 Oct rc.1 root-cause run, every loss was a reload before the call).
+const saveCalls = page => page.evaluate(() => window.__soakEvents.filter(e => e.type === 'save-call').length);
+async function stored(page, before) {
+  if (process.env.SOAK_RACE === '1') return;
+  await expect.poll(() => page.evaluate(n => {
+    const calls = window.__soakEvents.filter(e => e.type === 'save-call');
+    const settled = new Set(window.__soakEvents.filter(e => ['save-resolve', 'save-reject'].includes(e.type)).map(e => e.call));
+    return calls.length > n && calls.every(e => settled.has(e.call));
+  }, before), { timeout: 30_000, message: "the op's save() resolved before chaos" }).toBe(true);
+}
+
 async function guardDraft(page) {
   if (!process.env.SOAK_GUARD_QUICK_ADD) return;
   await expect.poll(() => page.evaluate(() => {
@@ -77,11 +91,13 @@ for (const seed of SEEDS) {
       console.log(`seed=${seed} step=${step} phone=${i} roll=${roll.toFixed(3)}`);
       const texts = [...items.keys()];
       try {
+        const before = await saveCalls(page);
         if (roll < 0.40 || !texts.length) {
           const text = `${tag}-p${i}-${counter++}`;
           await guardDraft(page);
           await page.fill('#new-text', text);
           await page.click('#add button[type=submit]');
+          await stored(page, before);
           items.set(text, true); everAdded.add(text);
         } else if (roll < 0.65) {   // edit
           const old = texts[Math.floor(r() * texts.length)];
@@ -89,19 +105,22 @@ for (const seed of SEEDS) {
           await page.getByRole('button', { name: old, exact: true }).click({ timeout: 10_000 });
           await page.fill('#edit-text', text);
           await page.click('#edit-save');
-          items.delete(old); items.set(text, true); everAdded.add(text);
+          items.delete(old); await stored(page, before);
+          items.set(text, true); everAdded.add(text);
         } else if (roll < 0.80) {   // "toggle": flip a done mark
           const old = texts[Math.floor(r() * texts.length)];
           const text = old.endsWith('~') ? old.slice(0, -1) : `${old}~`;
           await page.getByRole('button', { name: old, exact: true }).click({ timeout: 10_000 });
           await page.fill('#edit-text', text);
           await page.click('#edit-save');
-          items.delete(old); items.set(text, true); everAdded.add(text);
+          items.delete(old); await stored(page, before);
+          items.set(text, true); everAdded.add(text);
         } else {   // delete
           const old = texts[Math.floor(r() * texts.length)];
           await page.getByRole('button', { name: old, exact: true }).click({ timeout: 10_000 });
           await page.click('#edit-delete');
           await page.getByRole('button', { name: 'Delete', exact: true }).last().click();
+          await stored(page, before);
           items.delete(old); everDeleted.add(old);
         }
       } catch (e) {
@@ -138,10 +157,12 @@ for (const seed of SEEDS) {
         // Triage A/B independently of C. No wait is added before an immediate reload.
         await guardDraft(page);
         await page.context().setOffline(true);
-        // Guarantee a durable unsent save before this phone is closed.
+        // Guarantee a durable unsent save before this phone is closed (the row shows before it is stored; wait for save()).
+        const pendingBefore = await saveCalls(page);
         const pending = `${tag}-p${i}-pending${counter++}`;
         await page.fill('#new-text', pending);
         await page.click('#add button[type=submit]');
+        await stored(page, pendingBefore);
         await expect(page.locator('#items')).toContainText(pending);
         await expect.poll(() => page.evaluate(() => window.starter.status)).not.toBe('synced');
         mine[i].set(pending, true); everAdded.add(pending);
