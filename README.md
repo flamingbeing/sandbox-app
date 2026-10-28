@@ -221,3 +221,5 @@ npm ci && node tools/sw-files.mjs app       # then the tests (Tests, above)
 
 Save `app/src/config.js` before clearing and copy it back before fill (fill keeps its web config), or pass `--web-config <web.json>` (`firebase apps:sdkconfig WEB`). Open a PR, merge on green; the deploy workflow ships it. A new starter release that adds a Worker binding needs it
 created first (the files bucket: `npx wrangler r2 bucket create sandbox-app-files`).
+
+
