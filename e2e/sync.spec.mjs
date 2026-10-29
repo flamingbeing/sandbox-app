@@ -83,8 +83,8 @@ test('keep theirs drops this phone’s held change and nothing else', async ({ p
   await serverHas(t + ' from a');
   await b.context().setOffline(false);
   await expect(b.locator('#attention')).toBeVisible({ timeout: 20_000 });
-  // an unanswered conflict stays visible in the chip
-  await expect(b.locator('#status')).toHaveAttribute('data-state', 'attention');
+  // an unanswered conflict stays visible in the sync button
+  await expect(b.locator('#sync-btn')).toHaveAttribute('data-state', 'attention');
   await b.click('#attention');
   await b.getByRole('button', { name: 'Keep theirs' }).click();
   await expect(b.locator('#today')).toContainText(t + ' from a', { timeout: 15_000 });

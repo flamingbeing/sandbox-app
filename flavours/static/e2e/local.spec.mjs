@@ -25,7 +25,7 @@ test('adds, edits and deletes; the list stays after a reload', async ({ phone })
 test('no sign-in: no account footer, no sync chip, settings open at once', async ({ phone }) => {
   const page = await phone();
   await signIn(page);
-  await expect(page.locator('#signed-out, #sign-out, #sync-chip')).toHaveCount(0);
+  await expect(page.locator('#signed-out, #sign-out, #sync-btn')).toHaveCount(0);
   await openSettings(page);
   await page.getByRole('switch', { name: /Show how many are open/ }).click();
   await openToday(page);
