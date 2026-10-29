@@ -1,17 +1,19 @@
 // The Cloudflare Worker for this repo's address. It serves the repo's files (the static assets, bound as ASSETS),
 // decides which folder an address may see (routes.js), adds the security headers (headers.js), answers /api/claims
 // (claims.js from app-devkit, roles from members.js), /api/members/ (admins set and remove roles, members.js) and
-// the optional modules' routes (the files recipe: /api/files/, files.js, the R2 bucket bound as FILES), and passes
+// the optional modules' routes (modules.js: each module's route, e.g. the files recipe's /api/files/), and passes
 // Firebase's sign-in helper pages on to the project.
 // wrangler.jsonc: "run_worker_first" sends every request here; FIREBASE_PROJECT is a var there, the service account
 // (SA_EMAIL, SA_KEY) are Worker secrets.
 import { resolve, publicFile } from './routes.js';
 import { securityHeaders } from './headers.js';
 import { handleCspReport } from './csp-report.js';
-import { admin, handleClaims, verifyIdToken } from './claims.js';
-// add: worker imports
-import { handleFiles } from './files.js';
+import { ROUTES } from './modules.js';
+// cloud{ roles and members (a static app has neither: tools/flavour.mjs)
+import { handleClaims, verifyIdToken } from './claims.js';
+import { adminFor } from './admin.js';
 import { loadClaims, handleMembers } from './members.js';
+// }cloud
 
 const NOINDEX = 'noindex, nofollow';
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/;
@@ -23,17 +25,22 @@ export default {
     const project = env.FIREBASE_PROJECT || '';
     const finish = res => withHeaders(res, { project, local });
 
+    // cloud{
     if (url.pathname === '/api/claims') return finish(await claims(request, env, url, local, project));
+    // }cloud
     if (url.pathname === '/api/csp') return finish(await handleCspReport(request));
-    // add: worker routes
-    if (url.pathname.startsWith('/api/files/')) return finish(await files(request, env, url, local, project));
+    // the modules' routes (worker/modules.js), each asked in turn
+    for (const route of ROUTES) if (route.match(url)) return finish(await route.handle(request, env, { url, local, project }));
+    // cloud{
     if (url.pathname.startsWith('/api/members/')) return finish(await members(request, env, url, local, project));
+    // }cloud
     if (request.method !== 'GET' && request.method !== 'HEAD') return finish(new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } }));
-    // Firebase's sign-in helper pages, from the project's own Firebase address, so sign-in never leaves this one
+    // cloud{ Firebase's sign-in helper pages, from the project's own Firebase address, so sign-in never leaves this one
     if (/^\/__\/(auth|firebase)\//.test(url.pathname) && project && !local) {
       const res = await fetch(new Request(`https://${project}.firebaseapp.com${url.pathname}${url.search}`, request));
       return withHeaders(new Response(res.body, res), { project, local, framedBySelf: true, helper: true });
     }
+    // }cloud
     const r = resolve(url.hostname, url.pathname);
     if (r.redirect) return finish(redirect(url, r.redirect));
     if (r.notFound) return finish(notFound());
@@ -61,17 +68,7 @@ export default {
   },
 };
 
-// The real project with the service account in Worker secrets; on localhost with EMULATOR set (the e2e server only)
-// the emulators, which need no account and accept only a demo- project.
-// One per isolate, so its access token (an hour) serves every request rather than an exchange with Google per request.
-const admins = new Map();
-function adminFor(env, local, project) {
-  if (local && env.EMULATOR) return admin({ project, emulator: { auth: env.AUTH_EMULATOR, firestore: env.FIRESTORE_EMULATOR } });
-  if (!(env.SA_EMAIL && env.SA_KEY && project)) return null;
-  const key = `${project}\n${env.SA_EMAIL}\n${env.SA_KEY}`;
-  if (!admins.has(key)) admins.set(key, admin({ project, sa: { email: env.SA_EMAIL, key: env.SA_KEY } }));
-  return admins.get(key);
-}
+// cloud{
 function claims(request, env, url, local, project) {
   const adm = adminFor(env, local, project);
   return settledClaims(a => handleClaims(request, { admin: a, loadClaims, origin: url.origin, limit: env.CLAIMS_LIMIT, emulator: !!(local && env.EMULATOR) }), adm);
@@ -95,23 +92,16 @@ export async function settledClaims(ask, adm, tries = 3) {
   }
 }
 
-// add: worker handlers
-// The same ID token check as /api/claims (the emulators' unsigned tokens only on localhost with EMULATOR set), and the
-// rules' revoked/{uid} gate, read as the service account (without one, no roles are ever issued).
-function files(request, env, url, local, project) {
-  const emulator = !!(local && env.EMULATOR);
-  const verify = project ? idToken => verifyIdToken(idToken, { project, emulator }) : null;
-  const adm = project ? adminFor(env, local, project) : null;
-  const revoked = adm ? async (/** @type {string} */ uid) => !!(await adm.getDoc(`revoked/${uid}`)) : null;
-  return handleFiles(request, { bucket: env.FILES, verify, revoked, origin: url.origin });
-}
+// }cloud
 
+// cloud{
 // Role changes and removals, as the service account; the same ID token check as /api/claims.
 function members(request, env, url, local, project) {
   const emulator = !!(local && env.EMULATOR);
   const verify = project ? (/** @type {string} */ idToken) => verifyIdToken(idToken, { project, emulator }) : null;
   return handleMembers(request, { admin: project ? adminFor(env, local, project) : null, verify, origin: url.origin });
 }
+// }cloud
 
 function withHeaders(res, opts) {
   const out = new Response(res.body, res);

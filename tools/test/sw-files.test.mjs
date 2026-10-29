@@ -51,6 +51,11 @@ test('a built folder (no public/, bundled assets) is listed the same way', () =>
   assert.deepEqual(shellFiles({ dir, sync: engine() }), ['./', 'app.css', 'assets/index-abc.js', CORE + 'app.js', CORE + 'src/runner.js', CORE + 'src/shared.js']);
 });
 
+test('a sub-page is listed by its folder (the worker answers a page by its folder, never index.html)', () => {
+  const dir = tree({ 'index.html': page({ '@core/app': CORE + 'app.js' }), 'public/sw.js': SW, 'public/second/index.html': '', 'public/second/second.js': '' });
+  assert.deepEqual(shellFiles({ dir, sync: engine() }), ['./', 'second/', 'second/second.js', CORE + 'app.js', CORE + 'src/runner.js', CORE + 'src/shared.js']);
+});
+
 test('refuses an engine checkout at another version than the import map, a missing file and a bare import', () => {
   const dir = tree({ 'index.html': page({ '@core/app': 'https://core.anawj.com/sync/1.2.4/app.js' }), 'sw.js': SW });
   assert.throws(() => shellFiles({ dir, sync: engine() }), /1\.2\.4.*1\.2\.3/);
@@ -63,9 +68,9 @@ test('refuses an engine checkout at another version than the import map, a missi
 });
 
 test('app-ui: the import map entries, and the style sheets and scripts the page links, with what they import', () => {
-  const UI = 'https://core.anawj.com/ui/1.0.0-rc.9/';
+  const UI = 'https://core.anawj.com/ui/1.0.0-rc.11/';
   const ui = tree({
-    'package.json': JSON.stringify({ name: 'app-ui', version: '1.0.0-rc.9' }),
+    'package.json': JSON.stringify({ name: 'app-ui', version: '1.0.0-rc.11' }),
     'ui/index.js': "export * from './toast.js';\n", 'ui/toast.js': "import { el } from '../theme/dom.js';\n", 'theme/dom.js': '',
     'theme/index.js': "import { el } from './dom.js';\n", 'theme/early.js': '', 'ui/ui.css': '', 'kit/index.html': '',
   });
@@ -77,7 +82,7 @@ test('app-ui: the import map entries, and the style sheets and scripts the page 
     './', UI + 'ui/index.js', UI + 'ui/toast.js', UI + 'theme/dom.js', UI + 'theme/index.js', UI + 'ui/ui.css', UI + 'theme/early.js',
   ]);
   const old = tree({ 'index.html': page({ '@core/ui': 'https://core.anawj.com/ui/0.9.0/ui/index.js' }), 'sw.js': SW });
-  assert.throws(() => shellFiles({ dir: old, sync: engine(), ui }), /app-ui 0\.9\.0.*1\.0\.0-rc\.9/);
+  assert.throws(() => shellFiles({ dir: old, sync: engine(), ui }), /app-ui 0\.9\.0.*1\.0\.0-rc\.11/);
 });
 
 test('writes the list into sw.js, and --check fails until it is written', () => {

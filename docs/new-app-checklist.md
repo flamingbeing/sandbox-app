@@ -44,12 +44,11 @@ No step of it is a manual check: after each deploy `live-smoke.yml` signs the te
 For a library a screen imports only when it is opened (`await import('<name>')`), on top of the README's "Adding an
 outside package":
 
-- [ ] **Import map:** its entry in `app/index.html`. The import map is the page's one inline script, allowed by its
-  hash, so any edit to it changes the hash: run `node tools/update-from-starter.mjs --refresh` (or copy the hash
-  `worker/test/headers.test.mjs` prints) to update `IMPORT_MAP` in `worker/headers.js`.
+- [ ] **Import map:** its entry in `modules.json`, then `node tools/modules.mjs`: it writes the import map and its
+  hash in `worker/headers.js` (the import map is the page's one inline script, allowed by that hash), and `sw.js`'s
+  list, so the vendored file is cached for offline (CI's `--check` fails until then).
 - [ ] **Vite:** add its name to the `external` test in `vite.config.mjs` when the page loads it through the import map,
   so the build leaves the `import()` alone instead of bundling or failing on it.
-- [ ] **Offline:** `node tools/sw-files.mjs app`, so `sw.js` caches the vendored file (CI's `--check` fails until then).
 - [ ] A browser test that opens the screen offline after one online visit.
 
 ## 5. Things that look like one thing and are another
@@ -80,3 +79,18 @@ template commit in `.starter.json`, not a `git merge`; the app's history is neve
   `n` template commits behind. The weekly workflow `.github/workflows/starter-behind.yml` runs it in every app and
   warns (never fails) past `BEHIND` commits, with the stale app-devkit pins.
 - [ ] Then the README's tests, and one PR.
+
+## 7. The page layout is the kit's shell
+
+The sample page is app-ui's shell (`.ui-shell`): a bar with the menu button, a phone tab bar over swipeable tab pages, a
+side bar from 600 px, and the phone drawer. It is wired in `app/src/shell.js` (`startGestures`, `adaptiveShell`) and
+`app/index.html`; the Settings page is `settingsScreen` with `about: { name, update }` (no hand-made dialog, no
+`updatePrompt`). The options it lists are `SETTING_SECTIONS` in `app/src/options.js`.
+
+- [ ] A new page: a `<section class="ui-screen ui-tab-page" id="x-page" hidden>` in `main.ui-screens` (with an
+  `h1.ui-large-title`), a `<button class="ui-tab" data-tab-page="#x-page">` in `nav.ui-tabbar` (optional
+  `span.ui-tab-icon`) and a `ui-side-link` for it in `nav#side`. Swipe and the bar title follow by themselves; the e2e
+  `openSettings` / `openToday` / `openTab` helpers in `e2e/fixtures.mjs` show how a test reaches a page.
+- [ ] The shell is the files `app/index.html`, `app/src/shell.js`, `app/public/app.css` and `options.js`; take template
+  changes to them with `tools/update-from-starter.mjs` (section 6), not by hand.
+

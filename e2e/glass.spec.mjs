@@ -2,7 +2,7 @@
 // the modules run), solid where the device asks for less transparency or more contrast, axe on glass, the screen
 // switch as a view transition. Screenshots of the sample in light, dark, OLED and Solid go to test-results/ for the PR.
 import AxeBuilder, { byTool } from './axe.mjs';
-import { test, expect, clickOpens, signIn, add, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, add, APP, openSettings, openToday } from './fixtures.mjs';
 
 /** @param {import('@playwright/test').Page} page @param {string} sel @param {string} prop */
 const style = (page, sel, prop) => page.locator(sel).first().evaluate((e, p) => getComputedStyle(e).getPropertyValue(p), prop);
@@ -16,18 +16,25 @@ const surface = page => page.evaluate(() => {
   return c;
 });
 
+// the kit's bar is clear at the top of a page and turns to the glass once the page scrolls under it (.is-collapsed)
+const collapsed = page => page.evaluate(() => document.querySelector('.ui-bar')?.classList.add('is-collapsed'));
+
 test('glass by default; Solid in the switch takes it off, kept on reload and before the modules run', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   const root = page.locator('html');
   await expect(root).toHaveClass(/\bglass\b/);
-  expect(await style(page, '.bar', 'backdrop-filter')).toContain('blur');
-  expect(await style(page, '.bar', 'background-color')).toMatch(/color\(srgb .* \/ 0\.\d+\)|rgba\(/);   // see-through
+  await collapsed(page);
+  expect(await style(page, '.ui-bar', 'backdrop-filter')).toContain('blur');
+  expect(await style(page, '.ui-bar', 'background-color')).toMatch(/(color\(srgb|oklab\(|rgba\().* \/ 0\.\d+\)/);   // see-through
 
   await page.getByLabel('Bars and sheets').selectOption('solid');
   await expect(root).not.toHaveClass(/\bglass\b/);
-  expect(await style(page, '.bar', 'backdrop-filter')).toBe('none');
+  await collapsed(page);
+  expect(await style(page, '.ui-bar', 'backdrop-filter')).toBe('none');
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   await expect(root).not.toHaveClass(/\bglass\b/);
   await expect(page.getByLabel('Bars and sheets')).toHaveValue('solid');
 
@@ -37,6 +44,7 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
   await expect(root).not.toHaveClass(/\bglass\b/);
   await page.unroute('**/theme/index.js');
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
 
   await page.getByLabel('Bars and sheets').selectOption('glass');
   await expect(root).toHaveClass(/\bglass\b/);
@@ -51,12 +59,13 @@ test('asked for more contrast: solid card colour, no blur', async ({ phone }) =>
   // either); switching them off and on does
   await page.evaluate(() => document.querySelectorAll('link[rel=stylesheet]').forEach(l => { l.disabled = true; l.disabled = false; }));
   await expect(page.locator('html')).toHaveClass(/\bglass\b/);
-  expect(await style(page, '.bar', 'backdrop-filter')).toBe('none');
-  expect(await style(page, '.bar', 'background-color')).toBe(await surface(page));
+  await collapsed(page);
+  expect(await style(page, '.ui-bar', 'backdrop-filter')).toBe('none');
+  await expect.poll(async () => style(page, '.ui-bar', 'background-color')).toBe(await surface(page));   // (the bar fades to it)
 });
 
 // (the springs finished, so axe and the screenshots see the parts at rest, not mid fade-in)
-const settled = page => page.evaluate(() => Promise.all(document.getAnimations().map(a => a.finished)));
+const settled = page => page.evaluate(() => Promise.all(document.getAnimations().map(a => a.finished.catch(() => {}))));
 
 const MODES = [
   ['light', { theme: 'light', dark: 'dark', material: 'glass' }],
@@ -65,7 +74,8 @@ const MODES = [
   ['solid', { theme: 'light', dark: 'dark', material: 'solid' }],
 ];
 
-test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a sheet; screenshots kept', async ({ phone }, info) => {
+// (one test per mode: the four together ran ~55 s in WebKit, close to the 60 s limit)
+for (const [name, pick] of MODES) test(`the sample in ${name}: axe on the bar, a toast and a sheet; screenshots kept`, async ({ phone }, info) => {
   const page = await phone();
   await signIn(page, 'member');
   // (the list is shared and kept between runs: a run tag keeps this run's names unique under --repeat-each)
@@ -73,29 +83,27 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
   for (let i = 1; i <= 14; i++) await page.evaluate(t => window.starter.add(t), `Sample item ${i} ${run}`);
   // (other tests add to the same list in parallel: wait for this test's last item, not a total)
   await expect(page.getByRole('button', { name: `Sample item 14 ${run}`, exact: true })).toBeVisible();
-  for (const [name, pick] of MODES) {
-    await page.getByLabel('Theme').selectOption(pick.theme);
-    await page.getByLabel('Dark style').selectOption(pick.dark);
-    await page.getByLabel('Bars and sheets').selectOption(pick.material);
-    // (dismiss the last mode's toast first: its 4 s timer would otherwise end mid-check and move this one under axe)
-    await page.evaluate(() => document.querySelectorAll('.toast button').forEach(b => /** @type {HTMLElement} */ (b).click()));
-    await expect(page.locator('.toast')).toHaveCount(0);
-    await add(page, `Toast for ${name} ${run}`);
-    await expect(page.locator('.toast').last()).toBeVisible();
-    await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
-    await settled(page);
-    expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
-    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
+  await openSettings(page);
+  await page.getByLabel('Theme').selectOption(pick.theme);
+  await page.getByLabel('Dark style').selectOption(pick.dark);
+  await page.getByLabel('Bars and sheets').selectOption(pick.material);
+  await openToday(page);
+  await add(page, `Toast for ${name} ${run}`);
+  await expect(page.locator('.toast').last()).toBeVisible();
+  await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
+  await settled(page);
+  expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
+  await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
 
-    await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#edit'));
-    await settled(page);
-    expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
-    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
-    await page.locator('#edit').getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.locator('#edit')).toBeHidden();
-  }
+  await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#task-sheet'));
+  await settled(page);
+  expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
+  await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
+  await page.locator('#task-sheet').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator('#task-sheet')).toBeHidden();
 });
 
+// cloud{ (a static app has one screen)
 test('a change of screen is a view transition, unless motion is reduced', async ({ phone }) => {
   for (const reducedMotion of ['no-preference', 'reduce']) {
     const page = await phone();
@@ -113,3 +121,4 @@ test('a change of screen is a view transition, unless motion is reduced', async 
     else expect(n).toBeGreaterThan(0);
   }
 });
+// }cloud

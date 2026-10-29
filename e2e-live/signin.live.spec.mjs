@@ -12,7 +12,7 @@ import { firebaseConfig } from '../app/src/config.js';
 const { email, password } = liveUser();
 test.skip(!email || !password || !firebaseConfig.apiKey, 'no test user, or the app has no web config yet');
 
-test('the test user is signed in on the live site, sees the list and no console errors', async ({ page }) => {
+test('the test user is signed in on the live site, sees the Tasks screens and no console errors', async ({ page }) => {
   const errors = watchConsole(page);
   await page.goto('/');
   await expect(page.locator('#signed-out')).toBeVisible();
@@ -20,7 +20,13 @@ test('the test user is signed in on the live site, sees the list and no console 
   await page.reload();
   await expect(page.locator('#who')).toHaveText(email);
   await expect(page.locator('#signed-out')).toBeHidden();
-  await expect(page.locator('#list-view')).toBeVisible();  // an account with a role sees the list
+  await expect(page.locator('#list-view')).toBeVisible();  // an account with a role sees Today
+  await expect(page.locator('#today-title')).toHaveText('Today');
+  // the other two screens (the tab bar on a phone, the side bar from 600 px: either opens a page)
+  for (const [name, page_] of [['Upcoming', '#upcoming-page'], ['Done', '#done-page']]) {
+    await page.locator(`[data-tab-page="${page_}"]:visible`).first().click();
+    await expect(page.locator(`${page_} .ui-large-title`)).toHaveText(name);
+  }
   await expect(page.locator('#no-access')).toBeHidden();
   expect(errors).toEqual([]);
 });

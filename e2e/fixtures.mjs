@@ -5,10 +5,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// cloud{ the emulators (a static app has none: tools/flavour.mjs)
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
 export const db = fsAdmin('demo-sandbox-app');
 export const APP = '/app/?emulator';
+// }cloud
+/* static{
+// ?test: no service worker unless ?sw is given too (app.js)
+export const APP = '/app/?test';
+}static */
+/** today as the browser sees it: YYYY-MM-DD, local time (the tests' browser has this machine's time zone) */
+export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
 // SYNC_DIR: a local app-sync build (its entry files and src/) served in place of core.anawj.com/sync/<version>/, so
@@ -24,19 +32,53 @@ async function routeSync(context, served) {
   });
 }
 
-// Hermetic: the pages load the UI kit and core files from core.anawj.com, a stylesheet from design.flamingbeing.com and
-// (Firebase Auth's SDK) Google's gapi scripts. A stalled fetch to any of them made tests swing with the internet, so the
-// core files come from e2e/fixtures/core/ (a copy of the pinned versions: refresh with tools/refresh-core-fixtures.sh
-// after changing a version), the stylesheet is empty and the Google hosts are refused. A core file not in the copy fails loudly.
-const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'core');
+// UI_DIR: a local app-ui checkout served in place of core.anawj.com/ui/<version>/, so a candidate (an unreleased
+// app-ui change) can be tried in this app before it is released
+const UI_DIR = process.env.UI_DIR ? path.resolve(process.env.UI_DIR) : '';
 const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+async function routeUi(context) {
+  await context.route(/^https:\/\/core\.anawj\.com\/ui\/[^/]+\/(.+)$/, route => {
+    const rel = new URL(route.request().url()).pathname.split('/').slice(3).join('/');
+    const file = path.join(UI_DIR, rel);
+    if (!file.startsWith(UI_DIR + path.sep) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: 'not in UI_DIR' });
+    return route.fulfill({ status: 200, contentType: TYPES[path.extname(file)] ?? 'application/octet-stream', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(file) });
+  });
+}
+
+// The UI kit (core.anawj.com/ui/) loads live, as the app does. One failed fetch there (a 5xx, a reset) leaves the app
+// unbooted, so a failed fetch is tried again; after that the page's own request goes out as it would have.
+async function routeUiRetry(context) {
+  await context.route(/^https:\/\/core\.anawj\.com\/ui\//, async route => {
+    for (let i = 0; i < 3; i++) {
+      let response = null;
+      try { response = await route.fetch({ timeout: 8_000 }); } catch { /* retry */ }
+      if (response && response.status() < 500) return route.fulfill({ response }).catch(() => {});   // closed page: nothing to serve
+      await new Promise(r => setTimeout(r, 300 * (i + 1)));
+    }
+    await route.continue().catch(() => {});
+  });
+}
+
+// Hermetic for the rest: the pages load the sync and update modules from core.anawj.com, a stylesheet from
+// design.flamingbeing.com and (Firebase Auth's SDK) Google's gapi scripts. A stalled fetch to any of them made tests swing
+// with the internet, so those core files come from e2e/fixtures/core/ (a copy of the pinned versions: refresh with
+// tools/refresh-core-fixtures.sh after changing a version), the stylesheet is empty and the Google hosts are refused. A
+// core file not in the copy fails loudly. The UI kit falls through to the live route above (or UI_DIR).
+const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'core');
+// Under app-sync's consumer test (app-devkit serve-candidate) the engine and update module come from the candidate:
+// its route sits under this one, so /sync/ and /update/ fall through to it.
+const CANDIDATE = !!process.env.SERVE_CANDIDATE_SYNC;
 async function routeHermetic(context) {
+  await routeUiRetry(context);
   await context.route(/^https:\/\/core\.anawj\.com\//, route => {
     const rel = decodeURIComponent(new URL(route.request().url()).pathname);
+    if (rel.startsWith('/ui/')) return route.fallback();
+    if (CANDIDATE && /^\/(sync|update)\//.test(rel)) return route.fallback();
     const file = path.join(CORE, rel);
     if (!file.startsWith(CORE + path.sep) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: `not in e2e/fixtures/core: ${rel}` });
     return route.fulfill({ status: 200, contentType: TYPES[path.extname(file)] || 'application/octet-stream', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(file) });
   });
+  if (UI_DIR) await routeUi(context);   // registered later: wins over both routes above
   await context.route('https://design.flamingbeing.com/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await context.route(/^https:\/\/(apis|www)\.google\.com\//, route => route.abort('blockedbyclient'));
 }
@@ -132,6 +174,7 @@ async function check(made) {
   }
 }
 
+// cloud{ sign-in and the server's copy
 // Sign in as a new made-up Google account; with a role, an admin "adds" it (the role doc) and the page picks the
 // new claims up by itself. -> { uid, email }
 export async function signIn(page, role = 'member', { path = APP } = {}) {
@@ -159,21 +202,46 @@ export async function signInAgain(page, email) {
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
 }
 
+// }cloud
+/* static{
+// A static app has no sign-in: the step a cloud app's tests sign in with only opens the list. -> {}
+export async function signIn(page, role = 'member', { path = APP } = {}) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#list-view')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
+  return {};
+}
+}static */
+
 export async function add(page, text) {
   await page.fill('#new-text', text);
   await page.click('#add button[type=submit]');
-  await expect(page.locator('#items')).toContainText(text);
+  await expect(page.locator('#today')).toContainText(text);
 }
 // Open a dialog from its button and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the files
 // snapshot follows the first list one); a pointer click whose button is swapped out between press and release is dropped
 // (Firefox). The click event is sent in one step instead, to the button as it is now: nothing in between to be swapped.
+// The Settings page (a tab on a phone, a side-bar link from 600 px) and back to the list
+const tabLink = id => `.ui-tab[data-tab-page="#${id}"]:visible, .ui-side-link[data-tab-page="#${id}"]:visible`;
+// (the tab bar folds its other tabs away once the page scrolls down: back at the top they show)
+const toTop = page => page.evaluate(() => { scrollTo(0, 0); document.querySelector('.ui-tabbar')?.classList.remove('is-minimised'); });
+export const openSettings = async page => { await toTop(page); await page.locator(tabLink('settings-page')).first().click(); await expect(page.locator('#settings-host')).toBeVisible(); };
+export const openToday = async page => { await toTop(page); await page.locator(tabLink('today-page')).first().click(); await expect(page.locator('#today-page')).toBeVisible(); };
+export const openTab = async (page, name) => { await toTop(page); await page.locator(tabLink(`${name}-page`)).first().click(); await expect(page.locator(`#${name}-page`)).toBeVisible(); };
 export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
-export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
+// cloud{
+export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/tasks')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
 // The id of the shared item with this text (db.list leaves document ids out).
 export async function itemIdOf(text) {
   const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
-  const r = await fetch(`http://${host}/v1/projects/demo-sandbox-app/databases/(default)/documents/spaces/_/items?pageSize=300`, { headers: { Authorization: 'Bearer owner' } });
-  const d = ((await r.json()).documents || []).find(x => x.fields?.text?.stringValue === text);
-  return d?.name.split('/').pop();
+  // (every page: the shared list grows over a long --repeat-each soak, past one page)
+  for (let token = ''; ;) {
+    const r = await fetch(`http://${host}/v1/projects/demo-sandbox-app/databases/(default)/documents/spaces/_/tasks?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
+    const j = await r.json();
+    const d = (j.documents || []).find(x => x.fields?.text?.stringValue === text);
+    if (d) return d.name.split('/').pop();
+    if (!(token = j.nextPageToken || '')) return undefined;
+  }
 }
+// }cloud

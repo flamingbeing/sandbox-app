@@ -5,7 +5,7 @@
 import { listSearch } from './screens/list-search.js';
 import { itemFiles } from './screens/item-files.js';
 
-/** @type {{ listFilter?: import('./screens/list.js').ListFilter, itemFiles?: import('./screens/list.js').ItemFilesSlot }} */
+/** @type {{ listFilter?: import('./screens/tasks.js').ListFilter, itemFiles?: import('./screens/tasks.js').ItemFilesSlot }} */
 export const modules = {
   // add: slots
   listFilter: listSearch,
