@@ -1,5 +1,5 @@
 {
-  "name": "sandbox-app",
+  "name": "tasks",
   "private": true,
   "type": "module",
   "scripts": {

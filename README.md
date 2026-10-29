@@ -1,4 +1,4 @@
-# Sandbox app
+# Tasks
 
 Made from [app-starter](https://github.com/flamingbeing/app-starter), a template for small offline-first web apps that
 are safe from day one. Replace this first paragraph with what the app is once it is filled.
@@ -207,7 +207,7 @@ the build), so switching is one small PR that changes what is deployed, not the 
 
 ## Refresh from the starter
 
-sandbox-app is the starter's live sample (sandbox-app.flamingbeing.com, Firebase project `sandbox-app-app`). To bring it
+Tasks (renamed from sandbox-app, 29 Oct) is the starter's live sample (tasks.flamingbeing.com; the old sandbox-app host redirects, Firebase project `sandbox-app-app`). To bring it
 up to the starter's main:
 
 ```bash
@@ -215,7 +215,7 @@ git checkout -b refresh/starter-<sha>
 git ls-files -z | xargs -0 rm -f            # clear the old files, keep .git
 (cd ../app-starter && git archive HEAD) | tar -x
 node tools/fill.mjs --name sandbox-app --host sandbox-app.flamingbeing.com --kit homedesign \
-  --project sandbox-app-app --title "Sandbox app" --accent "#3a6390" --commit <sha>
+  --project sandbox-app-app --title "Tasks" --accent "#3a6390" --commit <sha>
 npm ci && node tools/sw-files.mjs app       # then the tests (Tests, above)
 ```
 

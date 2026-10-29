@@ -4,10 +4,10 @@
   "commit": "8315b24",
   "app": {
     "name": "sandbox-app",
-    "host": "sandbox-app.flamingbeing.com",
+    "host": "tasks.flamingbeing.com",
     "kit": "homedesign",
     "project": "sandbox-app-app",
-    "title": "Sandbox app"
+    "title": "Tasks"
   },
   "modules": {
     "files": "../app-starter/recipes/files.json",

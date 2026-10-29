@@ -11,7 +11,9 @@
 export const SITES = {
   // The app at the root. Firebase's sign-in helper pages (/__/auth/, /__/firebase/) are passed on to the project's
   // firebaseapp.com by sites.js, so sign-in stays on this address (authDomain is this host). tools/fill.mjs sets it.
-  'sandbox-app.flamingbeing.com': { root: 'app/' },
+  'tasks.flamingbeing.com': { root: 'app/' },
+  // renamed from sandbox-app (29 Oct): the old address sends every path on to the new one (301, query kept)
+  'sandbox-app.flamingbeing.com': { moved: { '/': 'https://tasks.flamingbeing.com/' } },
 };
 
 // Folders every host serves as they are (shared files, no data), e.g. ['/shared/']
