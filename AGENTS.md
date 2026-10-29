@@ -1,4 +1,4 @@
-# Sandbox app
+# Tasks
 
 Instructions for every AI assistant working here (Claude Code reads this through `CLAUDE.md`).
 Replace the placeholders in angle brackets once the app is filled, then delete this line.

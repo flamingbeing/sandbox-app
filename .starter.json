@@ -7,7 +7,7 @@
     "host": "tasks.flamingbeing.com",
     "kit": "homedesign",
     "project": "sandbox-app-app",
-    "title": "Sandbox app"
+    "title": "Tasks"
   },
   "modules": {
     "files": "../app-starter/recipes/files.json",

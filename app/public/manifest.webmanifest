@@ -1,6 +1,6 @@
 {
-  "name": "Sandbox app",
-  "short_name": "Sandbox app",
+  "name": "Tasks",
+  "short_name": "Tasks",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
