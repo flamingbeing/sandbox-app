@@ -207,7 +207,7 @@ the build), so switching is one small PR that changes what is deployed, not the 
 
 ## Refresh from the starter
 
-sandbox-app is the starter's live sample (sandbox-app.flamingbeing.com, Firebase project `sandbox-app-app`). To bring it
+Tasks (renamed from sandbox-app, 29 Oct) is the starter's live sample (tasks.flamingbeing.com; the old sandbox-app host redirects, Firebase project `sandbox-app-app`). To bring it
 up to the starter's main:
 
 ```bash

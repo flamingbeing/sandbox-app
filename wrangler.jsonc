@@ -27,5 +27,10 @@
   // (README, "Files"); tools/fill.mjs names it after the app
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "sandbox-app-files" }],
   // the real address, as in worker/routes.js SITES; the first deploy adds the custom domain
-  "routes": [{ "pattern": "sandbox-app.flamingbeing.com", "custom_domain": true }]
+  // the Worker keeps the name `sandbox-app` (a renamed Worker would lose its SA_EMAIL / SA_KEY secrets); the old address
+  // stays on it only to redirect (worker/routes.js SITES)
+  "routes": [
+    { "pattern": "tasks.flamingbeing.com", "custom_domain": true },
+    { "pattern": "sandbox-app.flamingbeing.com", "custom_domain": true }
+  ]
 }

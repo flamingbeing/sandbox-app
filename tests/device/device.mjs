@@ -9,7 +9,7 @@
 //   6 twelve offline saves, force-quit, reconnect, then six saves while the network flaps: all arrive once, none doubled
 // Device A is a phone-sized Chromium context, or real Chrome on an Android emulator with ANDROID=1 (Playwright's
 // _android API over adb); device B is always a phone-sized Chromium context.
-// Needs: DEVICE_URL (https://sandbox-app.flamingbeing.com), DEVICE_EMAIL, DEVICE_PASSWORD (the test-bot user; it must
+// Needs: DEVICE_URL (https://tasks.flamingbeing.com), DEVICE_EMAIL, DEVICE_PASSWORD (the test-bot user; it must
 // already hold the member role on that app: claim g._=member plus a members/<uid> doc, which the tests do not create),
 // and the app's firebase config (read from DEVICE_URL's app/src/config.js).
 // Run:  node tests/device/device.mjs [--phase=all|install|update|extra] [--out=tests/device/out]

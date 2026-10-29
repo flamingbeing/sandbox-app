@@ -36,3 +36,8 @@ test('a file not in its folder is looked for in the folder\'s public/ (the Vite 
   assert.equal(publicFile('app/'), null, 'a folder');
   assert.equal(publicFile('index.html'), null, 'no folder');
 });
+
+test('the old sandbox-app address sends every path to the new one', () => {
+  assert.deepEqual(resolve('sandbox-app.flamingbeing.com', '/'), { redirect: 'https://tasks.flamingbeing.com/' });
+  assert.deepEqual(resolve('sandbox-app.flamingbeing.com', '/search/x'), { redirect: 'https://tasks.flamingbeing.com/search/x' });
+});
