@@ -1,16 +1,16 @@
-// The page's shell: the theme, the kit's sync chip and update prompt (in Settings), the account footer, and the screen
-// switch. The sample screens (screens/) show a list with add, edit, delete, conflicts and refused saves; a new app
+// The page's wiring: the shell and Settings page (shell.js), the kit's sync chip, the account block, and the screen
+// switch. The screens (screens/) are the three task tabs with add, edit, tick, delete, conflicts and refused saves; a new app
 // replaces them and keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
-import { syncChip, updatePrompt, plural } from '@core/ui';
-import { themeSwitch } from '@core/theme';
-import { start, usingEmulator, emulatorSignIn } from './cloud.js';
+import { syncChip, plural, loadState } from '@core/ui';
+import { start, usingEmulator, emulatorSignIn, lastSignedIn, keepList, keptList } from './cloud.js';
 import { $ } from './dom.js';
+import { dayKey } from './tasks.js';
 import { screenSwitch } from './screen-switch.js';
 import { signedOutScreen } from './screens/signed-out.js';
 import { noAccessScreen } from './screens/no-access.js';
 import { notSetUpScreen } from './screens/not-set-up.js';
-import { listScreen } from './screens/list.js';
-import { settingsSheet } from './settings-sheet.js';
+import { tasksScreen } from './screens/tasks.js';
+import { startShell, settingsPage } from './shell.js';
 
 const typing = () => document.activeElement?.tagName === 'INPUT' && !!(/** @type {HTMLInputElement} */ (document.activeElement).value);
 const sheetOpen = () => !!document.querySelector('dialog[open]');
@@ -19,10 +19,24 @@ const sheetOpen = () => !!document.querySelector('dialog[open]');
 // sheet is open or saves are unsent. (Off in the emulator tests unless ?sw is given.)
 const withSW = 'serviceWorker' in navigator && (!usingEmulator || new URLSearchParams(location.search).has('sw'));
 
-themeSwitch($('theme-switch'));
-window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn, files: () => app?.files, members: () => app?.members };   // for the tests
+window.starter = { ready: false, add: text => app?.add({ text, due: dayKey() }), signInAs: emulatorSignIn, files: () => app?.files, members: () => app?.members };   // for the tests
+startShell();   // the tabs and menu work while the app starts
+// this device was signed in last time: show the list's frame (skeleton rows) now, not a blank page or the sign-in screen
+// while the sign-in is restored (cloud.js says signed out only once it has settled, and then the sign-in screen replaces it)
+if (lastSignedIn()) {
+  $('list-view').hidden = false; $('add').hidden = true;
+  // Today as it was last drawn, read-only, until the real one arrives (screens/tasks.js replaces every row)
+  const kept = keptList();
+  if (kept.length) $('today').replaceChildren(...kept.map(r => {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.textContent = r.text; b.disabled = true;
+    li.append(b);
+    return li;
+  }));
+  else loadState($('today-state')).loading();
+}
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
-updatePrompt($('update-prompt'), { update: app?.update || null });
+settingsPage(app);
 
 if (!app) notSetUpScreen().show({ phase: 'not-set-up' });
 else {
@@ -35,10 +49,7 @@ else {
   });
   syncChip($('sync-chip'), { sync: /** @type {any} */ ({ status$: chipStatus$ }) });   // (the chip reads only status$)
   chipStatus$(st => { window.starter.status = st.state; });
-  let signedIn = false;
-  settingsSheet(app, () => signedIn);
-  $('open-settings').hidden = false;   // signed out too: the version line and the device options are in it
-  const list = listScreen(app);
+  const list = tasksScreen(app);
   const show = screenSwitch({
     'signed-out': signedOutScreen(app, { onForget: ok => { if (ok) $('sign-out-msg').textContent = ''; } }),
     'no-access': noAccessScreen(),
@@ -55,14 +66,15 @@ else {
     onState(s) {
       $('who').textContent = s.user ? s.user.email : '';
       $('sign-out').hidden = !s.user;
-      signedIn = !!s.user;
       if (s.user) $('sign-out-msg').textContent = '';
       show(s);
     },
     onList(items, changed) {
       list.draw(items, changed);
+      keepList(list.shown());
       window.starter.ready = true;
     },
+    onLists(lists) { list.drawLists(lists); },
     onFiles(by) { list.drawFiles(by); },
   });
 }

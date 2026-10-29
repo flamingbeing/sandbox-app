@@ -1,7 +1,7 @@
 {
   "template": "flamingbeing/app-starter",
   "version": "0.2.0",
-  "commit": "8315b24",
+  "commit": "73acbce",
   "app": {
     "name": "sandbox-app",
     "host": "tasks.flamingbeing.com",
@@ -9,13 +9,15 @@
     "project": "sandbox-app-app",
     "title": "Tasks"
   },
+  "update": {
+    "ignore": [
+      "tools/test/add.test.mjs",
+      "tools/test/fill.test.mjs",
+      "tools/test/modules.test.mjs"
+    ]
+  },
   "modules": {
     "files": "../app-starter/recipes/files.json",
     "search": "../app-starter/recipes/search.json"
-  },
-  "update": {
-    "ignore": [
-      "tools/test/add.test.mjs"
-    ]
   }
 }
