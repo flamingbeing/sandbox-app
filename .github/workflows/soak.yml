@@ -11,10 +11,10 @@ permissions:
   issues: write
 jobs:
   soak:
-    uses: flamingbeing/app-devkit/.github/workflows/soak.yml@v1.14.2
+    uses: flamingbeing/app-devkit/.github/workflows/soak.yml@v1.14.3
     with:
       # (the kit files the soak runs with: v1.14.0 made the test helpers' list() read every page; the workflow's own default is older)
-      kit-ref: v1.14.2
+      kit-ref: v1.14.3
       # cloud{
       emulators: firestore,auth
       # }cloud
