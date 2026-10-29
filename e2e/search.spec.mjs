@@ -42,8 +42,10 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
 test('"/" focuses the search box; axe passes with a query typed', async ({ phone }) => {
   const a = await phone();
   await signIn(a, 'member');
-  // (the "Added" toast springs in once the form clears: wait for that, so axe's wait for animations covers it)
+  // (the "Added" toast springs in only once the save is done, later than the form clearing: wait for it to be there, so
+  // axe's wait for animations covers its spring-in instead of measuring it half-faded, or the toast appearing mid-run)
   await addOne(a, uniq('axe'));
+  await expect(a.locator('.toast', { hasText: 'Added' })).toBeVisible();
   await a.locator('body').press('/');
   await expect(a.locator('#q')).toBeFocused();
   await a.fill('#q', 'is:long');
