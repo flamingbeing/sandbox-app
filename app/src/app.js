@@ -1,7 +1,7 @@
 // The page's wiring: the shell and Settings page (shell.js), the kit's sync button, the account block, and the screen
 // switch. The screens (screens/) are the three task tabs with add, edit, tick, delete, conflicts and refused saves; a new app
 // replaces them and keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
-import { syncButton, plural, loadState } from '@core/ui';
+import { syncButton, plural, loadState, afterGesture } from '@core/ui';
 import { start, usingEmulator, emulatorSignIn, lastSignedIn, keepList, keptList } from './cloud.js';
 import { $ } from './dom.js';
 import { dayKey } from './tasks.js';
@@ -62,6 +62,16 @@ else {
       ? `Signed out. ${plural(unsent, 'unsent change')} kept on this device; they send when you sign in again.`
       : 'Signed out. The list is kept on this device for your next sign-in.';
   });
+  /** @type {{ items: import('./items.js').Item[], changed: Set<string> } | null} */
+  let next = null;   // the newest list, not yet drawn
+  const drawList = () => {
+    if (!next) return;
+    const { items, changed } = next;
+    next = null;
+    list.draw(items, changed);
+    keepList(list.shown());
+    window.starter.ready = true;
+  };
   app.follow({
     onState(s) {
       $('who').textContent = s.user ? s.user.email : '';
@@ -70,9 +80,10 @@ else {
       show(s);
     },
     onList(items, changed) {
-      list.draw(items, changed);
-      keepList(list.shown());
-      window.starter.ready = true;
+      // drawn once the finger is up: a row redrawn under a swipe takes the swipe's moves with it (they go to the
+      // old row, out of the page), and the pages stop half-way
+      next = { items, changed: new Set([...(next?.changed ?? []), ...changed]) };
+      afterGesture(drawList);
     },
     onLists(lists) { list.drawLists(lists); },
     onFiles(by) { list.drawFiles(by); },
