@@ -1,11 +1,10 @@
 // The three task tabs: Today (#today-page: also the quick add), Upcoming and Done. One screen draws all of them from the
 // same tasks: the picked list narrows them, the search recipe's filter narrows them further, and the tasks' pure rules
 // (tasks.js) say what goes where. Ticking a task shows an undo toast; the kit's conflict sheet and the refused list sit on Today.
-import { conflictSheet, refusedList, toaster, emptyState, undoToast, loadState, confirmModal } from '@core/ui';
+import { conflictSheet, refusedList, toaster, emptyState, undoToast, loadState, confirmModal, lazyModules } from '@core/ui';
 import { COLL, REFUSED, INBOX, itemText } from '../items.js';
 import { todayTasks, upcomingGroups, doneTasks, inList, dayKey, dayLabel, dueText, dueOf, timeOf, isOverdue, listOf } from '../tasks.js';
 import { $, input, sectionScreen } from '../dom.js';
-import { taskSheet } from './task-sheet.js';
 import { listPicker } from './lists.js';
 import { modules } from '../modules.js';
 
@@ -48,7 +47,18 @@ export function tasksScreen(app) {
   const loading = loadState($('today-state'));
   if (!$('today').children.length) loading.loading();   // (rows from the last visit are already up: app.js)
   const lists = listPicker(app, { toast, redraw: () => draw(all, new Set()), tasks: () => all });
-  const sheet = taskSheet(app, { toast, undo, files, lists: lists.lists });
+  // the task sheet loads off the first screen (a literal import() so the build splits it); it starts loading at once, as
+  // a test goes offline straight after sign-in, and its listeners are all on its own elements, so building it late is safe
+  const mods = lazyModules({ taskSheet: () => import('./task-sheet.js') });
+  /** @type {ReturnType<import('./task-sheet.js').taskSheet> | undefined} */
+  let built;
+  const sheetReady = mods.need('taskSheet').then(m => (built = m.taskSheet(app, { toast, undo, files, lists: lists.lists })));
+  sheetReady.catch(() => {});   // a failed load shows when the sheet is opened
+  const sheet = {
+    /** @param {Task | null} task @param {import('../items.js').Fields} [start] */
+    open: async (task, start) => (built ?? await sheetReady).open(task, start),
+    redraw: () => built?.redraw(),
+  };
   const emptyOf = {
     today: emptyState($('today-empty'), { title: 'Nothing due today', hint: 'Tasks due today, and any that are overdue, show up here.', action: { label: 'Add a task', onClick: () => input('new-text').focus() } }),
     upcoming: emptyState($('upcoming-empty'), { title: 'Nothing coming up', hint: 'Tasks with a later day, and tasks with no day, show up here.' }),
