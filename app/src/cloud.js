@@ -47,6 +47,13 @@ export { COLL, itemText, REFUSED } from './items.js';
 /** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: any, db: any, emulator: boolean }> | null} */
 let fb = null;
 // The Firebase SDK, loaded once for every module (the import map names its version).
+/** A Firestore for the app: no SDK offline cache (the engine keeps the device copy and the outbox). */
+function firestoreFor(/** @type {any} */ F, /** @type {any} */ a) {
+  const db = F.getFirestore(a);
+  if (emulator) F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs);
+  return db;
+}
+
 export function sdk() {
   if (fb) return fb;
   fb = (async () => {
@@ -56,9 +63,8 @@ export function sdk() {
       : { ...firebaseConfig, authDomain: firebaseConfig.authDomain || APP.host };
     const a = app.initializeApp(cfg);
     const auth = A.getAuth(a);
-    const db = F.getFirestore(a);   // no SDK offline cache: the engine keeps the device copy and the outbox
+    const db = firestoreFor(F, a);
     if (emulator) {
-      F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs);
       A.connectAuthEmulator(auth, `http://127.0.0.1:${emulator.auth}`, { disableWarnings: true });
     }
     return { A, F, auth, db, emulator: !!emulator };
@@ -126,17 +132,22 @@ export async function start({ canReload = null }) {
       // commitRetry: a send refused with permission-denied just after sign-in (the role check still catching up) is tried
       // once more after 500 ms, as app-sync advises for rules that read a document another write is creating
       backend: { stampMode: 'server', writeId: false, held: true, edits: '_edits', commitRetry: { codes: ['permission-denied'], delay: 500 },
-        onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => (coll === COLL || coll === LISTS) && !after && before
+        onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => (coll === COLL || coll === LISTS) && !after && before && binOn()
           ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [] },
       hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
       // a save the server refused is set aside (kept, with its code) until the person retries or discards it
       onRefused: () => 'archive',
+      // after another account's sign-in wipes this device's copy (Firestore ends with it): a new Firestore in place of
+      // the ended one, so the switch needs no reload (a reload would lose an email-link sign-in half way)
+      reopen: async (/** @type {{ sdk: any }} */ { sdk: s }) => firestoreFor(s.F, s.db.app),
     }),
     ...(dataModules.files ? [dataModules.files.engine(SPACE)] : []),
     settings({ options: OPTIONS, collection: SETTINGS_COLL, scope: SPACE }),
     ...(canReload ? [update({ register, app: 'app', sw: 'sw.js', canReload })] : []),
   ];
   const app = createApp({ config: { name: APP.name, sdk }, modules });
+  // the bin is on unless its option (the bin recipe's) is off: a deleted item is then not copied there
+  const binOn = () => { try { return app.settings.get('binOn') !== false; } catch { return true; } };
   await app.ready;
   const { auth: fa } = await sdk();
   // Firebase restores the saved sign-in a moment after it starts: until it has, "no user" is not yet "signed out"
@@ -150,6 +161,8 @@ export async function start({ canReload = null }) {
   let offLists = null;
   /** @type {(() => void) | null} */
   let offFiles = null;
+  /** @type {Item[]} the tasks as last heard (items()) */
+  let latest = [];
   let seq = 0;
   // the token Firestore has been told about: its own token listener (added when the SDK started, so before this one)
   // runs in the same notification and restarts its connection with the new token. A list listen sent before that goes
@@ -166,7 +179,7 @@ export async function start({ canReload = null }) {
     try { claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* none */ }
     return { token, claims, stale: true };
   };
-  const stopList = () => { offList?.(); offList = null; offLists?.(); offLists = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
+  const stopList = () => { latest = []; offList?.(); offList = null; offLists?.(); offLists = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
     if (!hooks) return;
@@ -190,7 +203,8 @@ export async function start({ canReload = null }) {
     offSettings ??= app.settings.follow();   // the account's options, heard from other devices (listening needs the role)
     let first = true;
     offList ??= app.sync.watch(SPACE, COLL, (/** @type {Item[]} */ list, /** @type {{ changed?: string[] }} */ meta) => {
-      onList(list.filter(x => !x._deleted), new Set(first ? [] : meta?.changed || []));
+      latest = list.filter(x => !x._deleted);
+      onList(latest, new Set(first ? [] : meta?.changed || []));
       first = false;
     });
     offLists ??= app.sync.watch(SPACE, LISTS, (/** @type {TaskList[]} */ list) => { onLists(list.filter(x => !x._deleted)); });
@@ -213,6 +227,8 @@ export async function start({ canReload = null }) {
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
     auth: app.auth, sync: app.sync, settings: app.settings, update: app.update || null, files: app.files,
+    // the feedback recipe's messages to the owner (undefined without it)
+    feedback: dataModules.feedback?.api({ sdk, id, user: () => app.auth.user() }),
     // the whole app's status (sync and the modules): { state, count, unsent }
     /** @param {(st: { state: string, count: number, unsent: number }) => void} fn */
     status$: fn => app.status$(fn),
@@ -235,6 +251,13 @@ export async function start({ canReload = null }) {
     // one item, live from the server: cb(item) when its copy changes, cb(null) once the server says it is gone -> stop()
     /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
     watchItem: (itemId, cb) => app.sync.watchDoc(['spaces', SPACE, COLL, itemId], cb),
+    // the tasks as last heard, a whole task saved under its own id, and whether the server's copy has arrived (a
+    // restore: the backup recipe)
+    items: () => latest,
+    put: ops.put,
+    serverCopyIn: () => !!app.sync.facts().confirmed,
+    // the deleted items: list, restore, purge (the bin recipe)
+    bin: dataModules.bin?.api({ sdk, space: SPACE, items: () => latest, put: ops.put }),
     // admins: set someone's role, or remove them (they lose access at once; their sessions end). -> '' or the reason
     members: {
       /** @param {string} uid @param {'admin' | 'member' | 'viewer'} role */

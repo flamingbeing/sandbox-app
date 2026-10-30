@@ -78,7 +78,7 @@ lines between `cloud{` and `}cloud` marks go, and `flavours/static/` puts in its
 to what it has. `node tools/add.mjs cloud --project <firebase-project-id>` later makes it the cloud app: the cloud
 files come in, the static files it never changed go (changed ones stay and are listed), and fill sets the project;
 then the steps under "Fill". The device's list is not uploaded. In the template, a cloud-only line in a shared file
-goes inside marks; CI's `static` jobs fill a scratch copy as a static app and run its whole suite.
+goes inside marks; the `static` jobs in Full checks fill a scratch copy as a static app and run its whole suite.
 
 ## Start an app
 
@@ -134,6 +134,15 @@ APP_DIR=dist npm run e2e   # the same browser tests on that build
 node tools/modules.mjs --check && node tools/vendor-firebase.mjs --check   # modules.json's places and Firebase (no network)
 ```
 
+CI has two tiers. **Checks** (`checks.yml`, every PR and push to `main`, ~1.5-2 min; Deploy waits for it): repo
+checks, unit tests, type check, rules, secret scan, the browser tests in Chromium on a phone split over parallel
+shards (app-devkit `e2e.yml`; raise `shards` when one runs much over a minute), and the Vite build with a short smoke
+(tests tagged `@smoke`). **Full checks** (`full-checks.yml`): the whole suite on the Vite build, the template's own
+jobs, and anything slow an app adds (other browsers, a jank gate, heavy axe runs). They run nightly with the soak and
+by hand: Actions, "Full checks", Run workflow, with `ref` = a PR number, branch, tag or SHA (or
+`gh workflow run full-checks.yml -f ref=123`). A vital app sets the repo variable `FULL_CHECKS_ON_PRS=true`, and its
+PRs run Full checks too. Locally, run what the change touches; CI runs the rest.
+
 `.devkit/` holds app-devkit's `playwright/`, `rules/`, `tools/` and `worker/` at the pinned version (CI's setup
 blocks put it there; locally, `. tools/dev-setup.sh` copies them at the same tag).
 
@@ -156,7 +165,7 @@ tools/      fill.mjs, modules.mjs (everything made from modules.json), sw-files.
             (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
             vite-outside-package.mjs (the same for the outside-package fixture), dev-setup.sh (a fresh machine ready
             to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps), add.mjs (modules)
-recipes/    one JSON file per optional module (files, search) and the files each brings (README, "Modules")
+recipes/    one JSON file per optional module (files, search, backup, bin, share-in) and the files each brings (README, "Modules")
 docs/       decisions
 ```
 
@@ -186,9 +195,11 @@ node tools/add.mjs <owner/repo>@<tag|sha>:recipes/<module>.json   # a recipe fro
 node tools/add.mjs --remove search                 # takes it out again; a file the app changed is kept and listed
 ```
 
-The template ships two recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
-once) and `search` (`@core/search`, operators `field:`, `"phrase"`, `-leave-out`, `OR`, with `insertOperator` and
-`usesOperators` for a "?" list). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`)
+The template ships four recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
+once), `search` (`@core/search`, operators `field:`, `"phrase"`, `-leave-out`, `OR`, with `insertOperator` and
+`usesOperators` for a "?" list, and `snippetOf` for the matched passage under a row) and `backup` (`@core/backup`, a
+Settings page that saves the items as `.json.gz`, CSV or Excel and restores by adding only what is missing, with a
+dry-run line first; SheetJS loads only for Excel) and `bin` (Settings > Bin: the items deleted in the last 30 days, with Restore and Delete forever; the cloud app only) and `share-in` (Android share target: text and links shared to the installed app land in a chooser, a new item or added to an item's notes; the `shareIn` option is off by default and, while off, a share says so and keeps nothing; Android only). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`)
 names the module's `modules` entries, vendored folders, files, tsconfig `include`, style sheets, CSS custom properties,
 owner steps (printed as NEEDS-YOU lines) and notes.
 
@@ -201,7 +212,10 @@ hash, and the rules. CI runs `node tools/modules.mjs --check`.
 A recipe adds entries to registries, not code to the app's files:
 
 - `app/src/modules.js` and `app/src/data-modules.js`: one import and one slot per module (search fills the list's
-  `listFilter` slot; `#list-tools` holds its box);
+  `listFilter` slot; `#list-tools` holds its box; every recipe with a Settings page (backup, bin, feedback, share-in) adds one entry to the `settingsPages` group after `// add: settings pages`, and `shell.js` lists the group as it is, so a new recipe never edits `shell.js`. The Settings menu's headings are one ordered list in `shell.js` (`SETTINGS_GROUPS`: Tasks, Look, Sharing, Data, Advanced, then Other): a page's `group` picks its heading (backup and bin: Data; share-in: Sharing; feedback: Other) and a group not in the list falls under Other;
+  an app wired before this change (`backup: backupSettings,` etc. as top-level entries) moves those lines inside `settingsPages: { ... }` once);
+- the marks `// add: options` (`options.js`) and `// add: service worker handlers` (`sw.js`) take a recipe's option and fetch
+  handler; the manifest's entry goes after `"display"`;
 - `worker/modules.js`: one import and one route (`{ match(url), handle(request, env, ctx) }`) per module, which
   `worker/sites.js` asks in turn after its own routes;
 - `app/rules/<module>.rules`: written into the generated block of `app/firestore.app.rules`, then built into
@@ -210,8 +224,8 @@ A recipe adds entries to registries, not code to the app's files:
 
 `wrangler.jsonc` bindings (files' R2 bucket) and the e2e server's stand-ins stay inserts after an `add:` mark. Every
 edit is idempotent; re-adding from a newer source merges three-way into files the app changed. Afterwards
-`tools/modules.mjs` runs, and `.starter.json` `"modules"` records where each module came from. CI's `full` and
-`full-vite` jobs add both recipes to a scratch copy and run the whole suite on it; the lean app is tested on its own.
+`tools/modules.mjs` runs, and `.starter.json` `"modules"` records where each module came from. Full checks' `full`
+and `full-vite` jobs add both recipes to a scratch copy and run the whole suite on it; the lean app is tested on its own.
 
 ## Update from the template
 
@@ -240,10 +254,32 @@ For an app already made from this template (or on the one-object `createApp` of 
    `connect-src`, and update the import map's hash in `worker/headers.js` (its test prints the new one).
 6. Tests green, including a phone that saved offline on the old version (its outbox sends after the update).
 
+## Keep the first screen fast
+
+Checks' "Startup budget" step (app-devkit `startup-size.mjs`) caps what `app/index.html` loads before it can draw: its
+gzipped JS and its request count. Each app keeps its own numbers in `checks.yml`. A new screen or heavy extra (Excel,
+an editor, PDF) loads on first use, and the rest warm up once the first screen is up:
+
+```js
+import { lazyModules } from '@core/ui';
+const screens = lazyModules({ report: () => import('./screens/report.js') });
+screens.need('report').then(m => m.reportScreen(host));   // on first open
+screens.warmUp();                                           // after the first screen draws
+```
+
+Over budget means move code off startup, not raise the number: a phone on slow Wi-Fi waits for every startup file.
+
+The deploy also bundles (`deploy.yml` `bundle`, app-devkit `bundle-page.mjs`): it joins the startup files and the core
+at its pin into a few, each lazy screen its own file, and points `index.html` and `sw.js` at them. The source stays
+build-free and the bundle is never committed; Checks job "bundle" runs a smoke on it. Two rules keep it right: every
+`import()` is literal (`import('./screens/report.js')`, a full core address), or the module loads twice with its own
+state; and a test reaches Firebase only through the import map's names (`import('firebase/auth')`), which stay outside
+the bundle.
+
 ## Switch to Vite in one PR
 
-Vite is already here as a check (`vite.config.mjs`, `npm run vite`, CI job "vite" runs the whole browser suite on
-the build), so switching is one small PR that changes what is deployed, not the app:
+Vite is already here as a check (`vite.config.mjs`, `npm run vite`, Checks job "vite" runs a
+smoke on the build, Full checks the whole browser suite), so switching is one small PR that changes what is deployed, not the app:
 
 1. `.assetsignore`: add `app`, remove `dist`; `worker/routes.js`: the root folder becomes `dist/` (and `SHARED`, if
    any). `e2e`: set `APP_DIR=dist` for every run (the tests already pass on it).
