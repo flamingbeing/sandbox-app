@@ -2,8 +2,9 @@
    shell, ui/gestures.css and ui/shell/shell.css. */
 /* one space between the parts of a page, a sheet and a form (--gap), and the same 1px line (--line) round every box */
 .status-line { margin: 0 0 var(--gap); display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); }
-.ui-screen > :not(.ui-large-title) { max-width: 40rem; margin-inline: auto; padding-inline: var(--pad); }
-input, textarea, select { padding: .5rem; border: var(--border, 1px) solid var(--line); }
+.ui-screen > :not(.ui-large-title, #settings-host) { max-width: 40rem; margin-inline: auto; padding-inline: var(--pad); }
+/* the app's own fields; the Settings pages' controls keep the kit's look (and their own inset) */
+:is(input, textarea, select):not(.ui-settings *) { padding: .5rem; border: var(--border, 1px) solid var(--line); }
 #add { margin: 0 0 var(--gap); }
 #add .row { flex-wrap: nowrap; gap: var(--gap); }
 #add input { flex: 1; min-width: 0; }
@@ -27,9 +28,18 @@ input, textarea, select { padding: .5rem; border: var(--border, 1px) solid var(-
 .task-sub { display: block; font-size: .8rem; color: var(--muted); }
 .task-sub.overdue { color: var(--danger); }
 .task-row.done .task-main { text-decoration: line-through; }
-/* a task changed (here or on another device) since the tabs last showed */
-.task-row.changed { border-inline-start: 3px solid var(--accent); }
-.big .task-main { padding: 1rem 0; font-size: 1.15rem; }
+/* a task changed (here or on another device) since the tabs last showed: a short tint that fades, not a bar that
+   pushes the tick out of line */
+.task-row.changed { animation: task-changed 1.6s ease-out; }
+@keyframes task-changed { from { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .task-row.changed { animation: none; } }
+/* bulk edit: the kit's ticks stand in for the done boxes; the bar's × first */
+.is-editing .task-check { display: none; }
+/* (five parts on a phone's width: tighter than the kit's bar, and the count on one line) */
+.bulk-bar { gap: 0; padding-left: 4px; }
+.bulk-bar button { flex: none; padding-inline: .5rem; }
+.bulk-bar [data-select-count] { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bulk-bar [data-bulk="cancel"] { display: inline-flex; align-items: center; color: var(--muted); }
 .task-group-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 .25rem; padding-inline: var(--pad); color: var(--muted); }
 
 /* the list picker under each title: chips in a row that scrolls sideways on a phone */

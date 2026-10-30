@@ -85,9 +85,12 @@ test('the task sheet sets a day, time, notes and list; New on Upcoming starts wi
 test('Clear deletes the done tasks after a question', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
-  const t = uniq('clear');
-  await put(t, { text: t, done: true, doneAt: Date.now() });
+  // (in a list of its own: Clear deletes every done task shown, and other tests' tasks share the space)
+  const t = uniq('clear'), name = uniq('L'), listId = uniq('l');
+  await db.put(`spaces/_/lists/${listId}`, { name, createdAt: Date.now(), updatedAt: Date.now() });
+  await put(t, { text: t, done: true, doneAt: Date.now(), listId });
   await openTab(page, 'done');
+  await page.locator('#done-page .list-chip', { hasText: name }).click();
   await expect(page.locator('#done')).toContainText(t);
   await page.click('#clear-done');
   await page.getByRole('button', { name: 'Delete' }).last().click();

@@ -40,6 +40,11 @@ export function startShell() {
   Object.assign(window, { kit, shell });   // for the tests
 }
 
+/** @type {ReturnType<typeof createTransients> | undefined} */
+let transientsOnce;
+/** the page's one Back history (two would each take the other's entries for their own): the Settings menu and select mode */
+export const transients = () => (transientsOnce ??= createTransients({ history, location, events: window }));
+
 /** the tab bar's tabs, in index.html's order (an app's own hidden ones left out) */
 function barTabs() {
   const tabs = /** @type {HTMLElement[]} */ ([...document.querySelectorAll('.ui-tabbar > [data-tab-id]')]);
@@ -94,7 +99,7 @@ export function settingsPage(app) {
 
   settingsScreen($('settings-host'), {
     settings,
-    menu: { steps: createTransients({ history, location, events: window }), top: offBar },
+    menu: { steps: transients(), top: offBar },
     sections: byGroup([
       ...SETTING_SECTIONS,
       { title: 'Tab bar', icon: ICONS.menu, sub: 'Order, and which tabs show', group: 'This device', find: 'arrange tabs', mount: host => {
@@ -115,11 +120,4 @@ export function settingsPage(app) {
     ]),
     about: { name: APP.title || APP.name, update: app.update },
   });
-
-  // what the options do to the page, now and whenever one changes (here or on another device)
-  const apply = () => {
-    document.querySelector('.ui-screens')?.classList.toggle('big', settings.get('bigRows'));
-  };
-  settings.watch(null, apply);
-  apply();
 }
