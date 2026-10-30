@@ -28,8 +28,11 @@
 .task-sub { display: block; font-size: .8rem; color: var(--muted); }
 .task-sub.overdue { color: var(--danger); }
 .task-row.done .task-main { text-decoration: line-through; }
-/* a task changed (here or on another device) since the tabs last showed */
-.task-row.changed { border-inline-start: 3px solid var(--accent); }
+/* a task changed (here or on another device) since the tabs last showed: a short tint that fades, not a bar that
+   pushes the tick out of line */
+.task-row.changed { animation: task-changed 1.6s ease-out; }
+@keyframes task-changed { from { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .task-row.changed { animation: none; } }
 /* bulk edit: the kit's ticks stand in for the done boxes; the bar's × first */
 .is-editing .task-check { display: none; }
 /* (five parts on a phone's width: tighter than the kit's bar, and the count on one line) */
