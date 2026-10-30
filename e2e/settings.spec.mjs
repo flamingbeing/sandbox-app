@@ -40,7 +40,7 @@ test('the device value survives sign-out and a reload', async ({ phone }) => {
   const { email } = await signIn(a, 'member');
   await open(a);
   await big(a).check();
-  await openSettings(a);
+  await openSettings(a, 'Account');
   await a.click('#sign-out');
   await openToday(a);
   await expect(a.locator('#signed-out')).toBeVisible();

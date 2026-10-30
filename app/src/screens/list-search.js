@@ -1,29 +1,45 @@
-// The list's search box (the search recipe's glue, recipes/search.json): full-text search over the items with
-// @core/search, with the sample operators has:number and is:long. It fills the list's tools slot (#list-tools) and
-// "/" jumps to the box on a computer.
+// The search (the search recipe's glue, recipes/search.json): full-text search over the tasks with @core/search, with the
+// sample operators has:number and is:long. A search icon in the bar, left of sync, opens the box over the bar (the list's
+// tools slot, #list-tools); what it finds narrows every tab, and Cancel (or Esc) empties it and closes it. "/" opens it
+// on a computer.
 import { createSearch } from '@core/search';
+import { icon } from '@core/ui';
 import { itemText } from '../items.js';
+import { ICONS } from '../icons.js';
 
 /** @typedef {import('../items.js').Item} Item */
 
-/** the box, its label and its status line */
-function drawBox(/** @type {HTMLElement} */ slot) {
+/** the box over the bar, its Cancel and its status line; the bar's search icon opens it @param {HTMLElement} slot @param {() => void} redraw */
+function drawBox(slot, redraw) {
+  const bar = /** @type {HTMLElement} */ (slot.closest('.ui-bar'));
+  const open = /** @type {HTMLButtonElement | null} */ (document.getElementById('search-open'));
   const box = document.createElement('div');
   box.id = 'search';
-  const label = Object.assign(document.createElement('label'), { htmlFor: 'q', textContent: 'Search' });
+  box.setAttribute('role', 'search');
+  const label = Object.assign(document.createElement('label'), { htmlFor: 'q', textContent: 'Search', className: 'visually-hidden' });
   const q = Object.assign(document.createElement('input'), {
-    id: 'q', type: 'search', autocomplete: 'off', placeholder: 'word, "phrase", -leave out, has:number, is:long',
+    id: 'q', type: 'search', autocomplete: 'off', placeholder: 'Search tasks', title: 'word, "phrase", -leave out, has:number, is:long',
   });
+  const cancel = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Cancel', className: 'bar-search-cancel' });
   const msg = Object.assign(document.createElement('p'), { id: 'search-msg', className: 'small' });
   msg.setAttribute('role', 'status');
-  box.append(label, q, msg);
+  box.append(label, q, cancel, msg);
   slot.append(box);
-  return { q, msg };
+
+  const show = (/** @type {boolean} */ on) => {
+    bar?.classList.toggle('is-searching', on);
+    if (on) q.focus();
+    else { const had = q.value; q.value = ''; msg.textContent = ''; if (had) redraw(); open?.focus(); }
+  };
+  if (open) { open.append(icon(ICONS.search)); open.hidden = false; open.addEventListener('click', () => show(true)); }
+  cancel.addEventListener('click', () => show(false));
+  q.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); show(false); } });
+  return { q, msg, show };
 }
 
 /** @type {import('./tasks.js').ListFilter} */
 export function listSearch({ slot, redraw }) {
-  const { q, msg } = drawBox(slot);
+  const { q, msg, show } = drawBox(slot, redraw);
   const search = createSearch({
     fields: ['text'],
     operators: {
@@ -40,7 +56,7 @@ export function listSearch({ slot, redraw }) {
   document.addEventListener('keydown', e => {
     const t = /** @type {HTMLElement} */ (e.target);
     if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || document.querySelector('dialog[open]')) return;
-    e.preventDefault(); q.focus();
+    e.preventDefault(); show(true);
   });
 
   return {

@@ -16,6 +16,9 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
   await addOne(a, `${tag} epidural for hip, 12 hours`);
   await addOne(a, `${tag} spinal day surgery`);
   const q = a.locator('#q');
+  await expect(q).toBeHidden();   // the box opens from the bar's search icon
+  await a.click('#search-open');
+  await expect(q).toBeFocused();
 
   await q.fill(`${tag} spinal`);
   await expect.poll(() => shown(a)).toHaveLength(2);
@@ -37,9 +40,16 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
 
   await q.fill('');
   expect((await shown(a)).filter(t => t.startsWith(tag))).toHaveLength(3);
+
+  // Cancel empties the box and closes it
+  await q.fill(`${tag} spinal`);
+  await expect.poll(() => shown(a)).toHaveLength(2);
+  await a.click('#search .bar-search-cancel');
+  await expect(q).toBeHidden();
+  await expect.poll(async () => (await shown(a)).filter(t => t.startsWith(tag))).toHaveLength(3);
 });
 
-test('"/" focuses the search box; axe passes with a query typed', async ({ phone }) => {
+test('"/" opens the search box; axe passes with a query typed', async ({ phone }) => {
   const a = await phone();
   await signIn(a, 'member');
   // (the "Added" toast springs in only once the save is done, later than the form clearing: wait for it to be there, so

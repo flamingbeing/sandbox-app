@@ -57,7 +57,7 @@ export function tasksScreen(app) {
   conflictSheet($('conflict-sheet'), { sync: app.sync, text: itemText });
   refusedList($('refused-list'), { sync: app.sync, kind: COLL, text: itemText });
 
-  /** where a new task starts: the picked list, and (Today's quick add, and New on Today) due today */
+  /** where a new task starts: the picked list, and (Today's quick add) due today; New sits on Upcoming, so no day */
   const startFields = (/** @type {boolean} */ today) => {
     const l = lists.pick();
     return { listId: l === 'all' || l === INBOX ? null : l, ...(today ? { due: dayKey() } : {}) };
@@ -74,7 +74,7 @@ export function tasksScreen(app) {
     catch (err) { if (!input('new-text').value) input('new-text').value = text; throw err; }   // not saved: give it back
     toast(refused ? REFUSED : 'Added');
   });
-  $('new-task').addEventListener('click', () => sheet.open(null, startFields(document.getElementById('today-page')?.hidden === false)));
+  $('new-task').addEventListener('click', () => sheet.open(null, startFields(false)));
   $('clear-done').addEventListener('click', async () => {
     const done = doneShown;   // what the Done tab shows: the picked list and the search narrow it
     if (!done.length || !await confirmModal(`Delete ${done.length} done ${done.length === 1 ? 'task' : 'tasks'}?`, { title: 'Clear done tasks', danger: true, yes: 'Delete' })) return;

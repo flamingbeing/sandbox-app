@@ -51,7 +51,7 @@ test('ticking shows Undo, which puts the task back', async ({ phone }) => {
   await expect(page.locator('#today')).toContainText(t);
 });
 
-test('the task sheet sets a day, time, notes and list; New defaults to today on Today', async ({ phone }) => {
+test('the task sheet sets a day, time, notes and list; New on Upcoming starts with no day', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
   await page.evaluate(() => window.starter.add('x'));   // (a first task so the page has settled)
@@ -61,8 +61,9 @@ test('the task sheet sets a day, time, notes and list; New defaults to today on 
   await page.click('#list-add button[type=submit]');
   await expect(page.locator('#lists-manage').getByLabel(`Name of the list ${list}`)).toHaveValue(list);   // (the lists are shared: look for this one)
   await page.locator('#lists-sheet').getByRole('button', { name: 'Done' }).click();
+  await openTab(page, 'upcoming');
   await page.click('#new-task');
-  await expect(page.locator('#task-due')).toHaveValue(day(0));
+  await expect(page.locator('#task-due')).toHaveValue('');
   await page.fill('#task-text', t);
   await page.fill('#task-notes', 'bring the form');
   await page.fill('#task-due', day(1));
