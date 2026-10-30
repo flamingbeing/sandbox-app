@@ -35,10 +35,9 @@
 @media (prefers-reduced-motion: reduce) { .task-row.changed { animation: none; } }
 /* bulk edit: the kit's ticks stand in for the done boxes; the bar's × first */
 .is-editing .task-check { display: none; }
-/* (five parts on a phone's width: tighter than the kit's bar, and the count on one line) */
+/* (five parts on a phone's width: tighter than the kit's bar) */
 .bulk-bar { gap: 0; padding-left: 4px; }
-.bulk-bar button { flex: none; padding-inline: .5rem; }
-.bulk-bar [data-select-count] { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bulk-bar button { padding-inline: .5rem; }
 .bulk-bar [data-bulk="cancel"] { display: inline-flex; align-items: center; color: var(--muted); }
 .task-group-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 .25rem; padding-inline: var(--pad); color: var(--muted); }
 
