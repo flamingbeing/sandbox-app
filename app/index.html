@@ -14,9 +14,9 @@
     "@core/auth": "https://core.anawj.com/sync/1.5.5/auth.js",
     "@core/sync": "https://core.anawj.com/sync/1.5.5/sync.js",
     "@core/update": "https://core.anawj.com/sync/1.5.5/update.js",
-    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.69/ui/index.js",
-    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.69/theme/index.js",
-    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.69/settings/index.js",
+    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.70/ui/index.js",
+    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.70/theme/index.js",
+    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.70/settings/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
@@ -26,14 +26,14 @@
   }
 }
   </script>
-  <script src="https://core.anawj.com/ui/1.0.0-rc.69/theme/early.js"></script>
+  <script src="https://core.anawj.com/ui/1.0.0-rc.70/theme/early.js"></script>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/app.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/auth.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/sync.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/update.js" data-module>
-  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.69/ui/index.js" data-module>
-  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.69/theme/index.js" data-module>
-  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.69/settings/index.js" data-module>
+  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/index.js" data-module>
+  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.70/theme/index.js" data-module>
+  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.70/settings/index.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/update/0.2.0/register.js" data-module>
   <link rel="modulepreload" href="./vendor/firebase/12.19.0/firebase-app.js" data-module>
   <link rel="modulepreload" href="./vendor/firebase/12.19.0/firebase-auth.js" data-module>
@@ -43,11 +43,11 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.69/theme/theme.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.69/ui/ui.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.69/theme/glass.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.69/ui/gestures.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.69/ui/shell/shell.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/theme/theme.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/ui.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/theme/glass.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/gestures.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/shell/shell.css">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/files.css" data-module>
   <script type="module" src="src/app.js"></script>
@@ -61,11 +61,13 @@
       <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side">☰</button></span>
       <h2 class="ui-bar-title" aria-hidden="true">Tasks</h2>
       <span class="ui-bar-side ui-bar-end">
-        <!-- cloud{ the sync button (app-ui's syncButton): the state as a cloud icon, a tap syncs now -->
+        <!-- search (the search recipe, list-search.js, shows it): opens the box over the bar; it narrows every tab -->
+        <button type="button" id="search-open" class="bar-icon" aria-label="Search" title="Search" hidden></button>
+        <!-- cloud{ the sync button (app-ui's syncButton): the state as a cloud icon, a tap syncs now; last, top right -->
         <button type="button" id="sync-btn" aria-label="Connecting…" title="Connecting…"></button>
         <!-- }cloud -->
-        <button type="button" class="ui-primary" id="new-task" hidden>New</button>
       </span>
+      <div id="list-tools" class="bar-search"></div>
     </header>
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
@@ -97,12 +99,11 @@
           <div id="conflict-sheet"></div>
           <div id="refused-list"></div>
           <p id="edit-msg" class="small" role="status"></p>
-          <div id="list-tools"></div>
           <div class="list-picker" role="group" aria-label="Lists"></div>
           <form id="add" autocomplete="off">
-            <label for="new-text">New task</label>
+            <label for="new-text" class="visually-hidden">New task</label>
             <div class="row">
-              <input id="new-text" name="text" maxlength="500" required>
+              <input id="new-text" name="text" maxlength="500" required placeholder="New task">
               <button type="submit">Add</button>
             </div>
           </form>
@@ -115,6 +116,7 @@
       <section class="ui-screen ui-tab-page" id="upcoming-page" aria-labelledby="upcoming-title" hidden>
         <h1 class="ui-large-title" id="upcoming-title">Upcoming</h1>
         <div class="list-picker" role="group" aria-label="Lists"></div>
+        <p class="page-tools"><button type="button" class="ui-primary" id="new-task" hidden>New task</button></p>
         <div id="upcoming" class="task-groups"></div>
         <div id="upcoming-empty"></div>
       </section>
@@ -122,7 +124,7 @@
       <section class="ui-screen ui-tab-page" id="done-page" aria-labelledby="done-title" hidden>
         <h1 class="ui-large-title" id="done-title">Done</h1>
         <div class="list-picker" role="group" aria-label="Lists"></div>
-        <p class="done-tools"><button type="button" id="clear-done" hidden>Clear done tasks</button></p>
+        <p class="page-tools"><button type="button" id="clear-done" hidden>Clear done tasks</button></p>
         <ul id="done" class="ui-list" aria-label="Done"></ul>
         <div id="done-empty"></div>
       </section>

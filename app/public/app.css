@@ -1,32 +1,47 @@
 /* The sample screens' layout; colours, type and the kit parts' look come from theme/theme.css, ui/ui.css and, for the
    shell, ui/gestures.css and ui/shell/shell.css. */
-.status-line { margin: 0 var(--pad) var(--gap); }
+/* one space between the parts of a page, a sheet and a form (--gap), and the same 1px line (--line) round every box */
+.status-line { margin: 0 0 var(--gap); display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); }
 .ui-screen > :not(.ui-large-title) { max-width: 40rem; margin-inline: auto; padding-inline: var(--pad); }
-input, textarea, select { padding: .5rem; }
-#add input { flex: 1; min-width: 10rem; }
-.ui-list { padding: 0; margin: 0; }
+input, textarea, select { padding: .5rem; border: var(--border, 1px) solid var(--line); }
+#add { margin: 0 0 var(--gap); }
+#add .row { flex-wrap: nowrap; gap: var(--gap); }
+#add input { flex: 1; min-width: 0; }
+.ui-list { padding: 0; margin: 0 0 var(--gap); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* a sheet's fields: the name above its box, full width (the kit's .kit-field is the gallery's own, not in ui.css) */
+.kit-field { display: grid; gap: .25rem; margin: 0 0 var(--gap); }
+.kit-field > :is(input, textarea, select), .kit-field > .row > input { width: 100%; box-sizing: border-box; }
+.ui-sheet-body > .row { gap: var(--gap); margin-top: var(--gap); }
 
 /* a task: the tick, then its text with the due day under it */
-.task-row { list-style: none; display: flex; align-items: center; gap: .5rem; }
+.task-row { list-style: none; display: flex; align-items: center; gap: .75rem; }
 .task-check { flex: none; width: 1.4rem; height: 1.4rem; margin: 0; }
-.task-main { flex: 1; display: block; justify-content: flex-start; text-align: left; background: none; border: 0; padding: .5rem 0; font: inherit; color: inherit; min-width: 0; }
+.task-main { flex: 1; display: block; justify-content: flex-start; text-align: left; background: none; border: 0; padding: .5rem 0; font: inherit; color: inherit; min-width: 0;
+  border-radius: 0; box-shadow: none !important; }
+/* pressed (or held): the whole row tints, edge to edge under the card's own corners, instead of a pill round the words */
+.task-row { transition: background-color var(--d-quick, .15s) ease; }
+.task-row:has(> .task-main:not(:disabled):is(:active, [data-pressed])) { background: var(--press); }
+.ui-list:has(> .task-row) { overflow: hidden; }
 .task-sub { display: block; font-size: .8rem; color: var(--muted); }
 .task-sub.overdue { color: var(--danger); }
 .task-row.done .task-main { text-decoration: line-through; }
 /* a task changed (here or on another device) since the tabs last showed */
 .task-row.changed { border-inline-start: 3px solid var(--accent); }
 .big .task-main { padding: 1rem 0; font-size: 1.15rem; }
-.task-group-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: var(--gap) 0 .25rem; color: var(--muted); }
+.task-group-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 .25rem; padding-inline: var(--pad); color: var(--muted); }
 
 /* the list picker under each title: chips in a row that scrolls sideways on a phone */
-.list-picker { display: flex; gap: .4rem; overflow-x: auto; padding-block: .25rem var(--gap); }
+.list-picker { display: flex; gap: var(--gap); overflow-x: auto; padding-block: 0; margin: 0 0 var(--gap); }
 .list-chip { flex: none; border-radius: var(--pill-r, 1em); }
 .list-chip[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
 
 .task-when { display: flex; gap: var(--gap); }
 .task-when > label { flex: 1; }
 .list-manage-row input { flex: 1; min-width: 0; }
-.done-tools { margin: 0 0 var(--gap); }
+.page-tools { margin: 0 0 var(--gap); }
+.task-group { margin: 0 0 var(--gap); }
 
 /* toasts sit above the tab bar on a phone (the page's own room under its last row is the kit's: .ui-screen::after) */
 body { margin: 0; }
@@ -38,3 +53,13 @@ body { margin: 0; }
 .ui-sidebar-name { display: flex; align-items: center; gap: .5rem; }
 .app-mark { flex: none; border-radius: 22%; }
 .app-mark-big { display: block; margin: var(--pad) 0 var(--gap); }
+
+/* search, opened from the bar's icon (list-search.js): the box takes the whole bar, Cancel at its end; its note under it */
+.bar-icon { min-width: var(--tap); display: inline-flex; align-items: center; justify-content: center; }
+.bar-search { display: none; }
+.ui-bar.is-searching > :not(.bar-search) { display: none; }
+.ui-bar.is-searching > .bar-search { display: block; flex: 1; min-width: 0; }
+#search { position: relative; display: flex; align-items: center; gap: var(--gap); }
+#search input { flex: 1; min-width: 0; border-radius: var(--control-r, 1em); }
+#search-msg { position: absolute; top: calc(100% + var(--gap)); left: 0; margin: 0; }
+#search-msg:empty { display: none; }

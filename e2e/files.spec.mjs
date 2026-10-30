@@ -92,7 +92,7 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   await page.click('#task-sheet [data-close]');
   await expect(page.locator('#today li', { hasText: t })).toContainText('📎');
 
-  await openSettings(page);
+  await openSettings(page, 'Account');
   await page.click('#sign-out');
   await expect(page.locator('#sign-out-msg')).toContainText('unsent');
   await openToday(page);
@@ -106,7 +106,7 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   expect(await records(`${t}.txt`)).toEqual([expect.objectContaining({ type: 'text/plain', size: 13 })]);
   await synced(page);   // the upload's job is done too (a switch waits while anything is unsent)
 
-  await openSettings(page);
+  await openSettings(page, 'Account');
   await page.click('#sign-out');
   await openToday(page);
   await expect(page.locator('#signed-out')).toBeVisible();

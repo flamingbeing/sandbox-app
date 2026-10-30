@@ -17,9 +17,10 @@ import { modules } from './modules.js';
  * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection | null} SettingsSlot
  */
 
-// The Settings menu's headings, in this order; a page whose group is not listed goes under 'Other' (last), so a new
-// page is never left out and a recipe never edits this list
-const SETTINGS_GROUPS = ['Tasks', 'Look', 'Sharing', 'Data', 'Advanced', 'Other'];
+// The Settings menu's headings, in this order (as the Notes app's: the app's own pages, this device, the account, then
+// the rest); a page whose group is not listed goes under 'Other' (last), so a new page is never left out and a recipe
+// never edits this list
+const SETTINGS_GROUPS = ['Tasks', 'This device', 'Account', 'Sharing', 'Data', 'Advanced', 'Other'];
 /** @param {import('app-ui/ui/settings-screen.js').SettingSection[]} sections */
 const byGroup = sections => sections
   .map(s => (SETTINGS_GROUPS.includes(s.group ?? '') ? s : { ...s, group: 'Other' }))
@@ -96,14 +97,19 @@ export function settingsPage(app) {
     menu: { steps: createTransients({ history, location, events: window }), top: offBar },
     sections: byGroup([
       ...SETTING_SECTIONS,
-      { title: 'Tab bar', icon: ICONS.menu, sub: 'Order, and which tabs show', group: 'Look', find: 'arrange tabs', mount: host => {
+      { title: 'Tab bar', icon: ICONS.menu, sub: 'Order, and which tabs show', group: 'This device', find: 'arrange tabs', mount: host => {
         let stop = () => {};
         const draw = () => { stop(); stop = tabArranger(host, { tabs: barTabs(), get: () => settings.get('tabs'), set: v => settings.set('tabs', v), rules: TAB_RULES }); };
         repaints.add(draw);
         draw();
         return () => { repaints.delete(draw); stop(); };
       } },
-      { title: 'Look', icon: ICONS.smartphone, sub: 'Theme, colour and density', group: 'Look', mount: host => { themeSwitch(host); } },
+      // (the Look picker names the app's own look after the app, "Tasks")
+      { title: 'This device', icon: ICONS.smartphone, sub: 'Theme, look, colour and density', group: 'This device', find: 'look theme colour',
+        mount: host => { themeSwitch(host, { name: APP.title || APP.name }); } },
+      // cloud{ who is signed in and Sign out (index.html's #account, moved onto its own page)
+      { title: 'Account', icon: ICONS.user, sub: 'Who is signed in, Sign out', group: 'Account', find: 'sign out', mount: host => { host.append($('account')); } },
+      // }cloud
       // the recipes' own pages (an empty slot adds none)
       ...Object.values(modules.settingsPages ?? {}).flatMap(slot => { const section = slot?.({ app }); return section ? [section] : []; }),
     ]),
