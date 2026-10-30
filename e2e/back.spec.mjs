@@ -1,29 +1,26 @@
-// Back with tabs (app-ui tabBack): switching tabs adds at most one history step; Back on another tab goes to the
-// first tab; Back on the first tab shows "Press Back again to close"; a second Back within 2 s leaves.
-import { test, expect, signIn } from './fixtures.mjs';
+// Back with tabs: switching tabs adds at most one Back step; Back on another tab goes to the first tab, Back there asks once, then leaves the app.
+import { test, expect, signIn, openTab, openToday } from './fixtures.mjs';
 
-const current = page => page.locator('.ui-tabbar .ui-tab[aria-current="page"]');
-
-test('tabs add at most one Back step; Back goes to the first tab, then leaves', async ({ phone }) => {
+test('tabs A -> B -> C add at most one Back step; Back goes to the first tab, then (asked once) out of the app', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
-  await expect(current(page)).toHaveText(/Today/);
-  const before = await page.evaluate(() => history.length);
+  await expect(page.locator('#today-page')).toBeVisible();
+  const start = await page.evaluate(() => history.length);
+  const appUrl = page.url();
 
-  for (const name of ['Upcoming', 'Done', 'Settings']) {
-    await page.locator('.ui-tabbar .ui-tab', { hasText: name }).click();
-    await expect(current(page)).toHaveText(new RegExp(name));
-  }
-  expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(before + 1);
+  await openTab(page, 'upcoming');
+  await openTab(page, 'done');
+  await openTab(page, 'settings');
+  expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(start + 1);
 
   await page.goBack();
-  await expect(current(page)).toHaveText(/Today/);
+  await expect(page.locator('#today-page')).toBeVisible();
+  expect(page.url()).toBe(appUrl);
 
-  const app = page.url();
-  // rc.50: the first Back on the first tab asks once; a second within 2 s leaves
-  await page.goBack();
+  await page.goBack();   // the first Back on the first tab asks, the second within 2 s leaves
   await expect(page.getByText('Press Back again to close')).toBeVisible();
-  expect(page.url()).toBe(app);
-  const left = await page.goBack();
-  expect(left === null || page.url() !== app).toBe(true);
+  expect(page.url()).toBe(appUrl);
+  await page.goBack();
+  await expect.poll(() => page.url()).not.toBe(appUrl);
+
 });
