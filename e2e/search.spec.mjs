@@ -47,6 +47,15 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
   await a.click('#search .bar-search-cancel');
   await expect(q).toBeHidden();
   await expect.poll(async () => (await shown(a)).filter(t => t.startsWith(tag))).toHaveLength(3);
+
+  // a tap elsewhere closes an empty box; one with words stays
+  await a.click('#search-open');
+  await q.fill(`${tag} spinal`);
+  await a.locator('#today-page .ui-large-title').click();
+  await expect(q).toBeVisible();
+  await q.fill('');
+  await a.locator('#today-page .ui-large-title').click();
+  await expect(q).toBeHidden();
 });
 
 test('"/" opens the search box; axe passes with a query typed', async ({ phone }) => {

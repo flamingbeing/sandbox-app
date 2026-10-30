@@ -1,7 +1,7 @@
 // The search (the search recipe's glue, recipes/search.json): full-text search over the tasks with @core/search, with the
 // sample operators has:number and is:long. A search icon in the bar, left of sync, opens the box over the bar (the list's
-// tools slot, #list-tools); what it finds narrows every tab, and Cancel (or Esc) empties it and closes it. "/" opens it
-// on a computer.
+// tools slot, #list-tools); what it finds narrows every tab, and Cancel (or Esc) empties it and closes it. Tapping
+// elsewhere closes an empty box (one with words stays, so a narrowed list never hides why). "/" opens it on a computer.
 import { createSearch } from '@core/search';
 import { icon } from '@core/ui';
 import { itemText } from '../items.js';
@@ -26,14 +26,18 @@ function drawBox(slot, redraw) {
   box.append(label, q, cancel, msg);
   slot.append(box);
 
-  const show = (/** @type {boolean} */ on) => {
+  /** @param {boolean} on @param {boolean} [refocus] back to the search icon (not when a tap elsewhere closed it) */
+  const show = (on, refocus = true) => {
     bar?.classList.toggle('is-searching', on);
     if (on) q.focus();
-    else { const had = q.value; q.value = ''; msg.textContent = ''; if (had) redraw(); open?.focus(); }
+    else { const had = q.value; q.value = ''; msg.textContent = ''; if (had) redraw(); if (refocus) open?.focus(); }
   };
   if (open) { open.append(icon(ICONS.search)); open.hidden = false; open.addEventListener('click', () => show(true)); }
   cancel.addEventListener('click', () => show(false));
   q.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); show(false); } });
+  box.addEventListener('focusout', e => {
+    if (!q.value.trim() && !box.contains(/** @type {Node | null} */ (e.relatedTarget))) show(false, false);
+  });
   return { q, msg, show };
 }
 

@@ -6,6 +6,7 @@ import { COLL, REFUSED, INBOX, itemText } from '../items.js';
 import { todayTasks, upcomingGroups, doneTasks, inList, dayKey, dayLabel, dueText, dueOf, timeOf, isOverdue, listOf } from '../tasks.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { listPicker } from './lists.js';
+import { bulkEdit } from './bulk.js';
 import { modules } from '../modules.js';
 
 /** @typedef {import('../items.js').Task} Task */
@@ -59,6 +60,7 @@ export function tasksScreen(app) {
     open: async (task, start) => (built ?? await sheetReady).open(task, start),
     redraw: () => built?.redraw(),
   };
+  const bulk = bulkEdit(app, { tasks: () => all, lists: () => lists.lists(), toast, undo, files, open: t => void sheet.open(t) });
   const emptyOf = {
     today: emptyState($('today-empty'), { title: 'Nothing due today', hint: 'Tasks due today, and any that are overdue, show up here.', action: { label: 'Add a task', onClick: () => input('new-text').focus() } }),
     upcoming: emptyState($('upcoming-empty'), { title: 'Nothing coming up', hint: 'Tasks with a later day, and tasks with no day, show up here.' }),
@@ -96,6 +98,7 @@ export function tasksScreen(app) {
   const row = (t, today, changed, onToday) => {
     const li = document.createElement('li'), check = document.createElement('input'), main = document.createElement('button');
     li.className = 'ui-row task-row'; li.dataset.id = t.id;
+    if (canWrite) li.dataset.holdMenu = '#task-menu';   // hold: select it (bulk.js); a right-click: its menu
     li.classList.toggle('changed', changed); li.classList.toggle('done', !!t.done);
     check.type = 'checkbox'; check.className = 'task-check'; check.checked = !!t.done; check.disabled = !canWrite;
     check.setAttribute('aria-label', `${t.done ? 'Not done' : 'Done'}: ${t.text}`);
@@ -131,6 +134,7 @@ export function tasksScreen(app) {
   /** @param {Task[]} items @param {Set<string>} changed */
   const draw = (items, changed) => {
     all = items; filter?.feed(items);
+    const ticks = bulk.keep();
     loading.done();
     const today = drawnDay = dayKey(), sort = app.settings.get('sort');
     const narrowed = inList(filter?.pick(items) ?? items, lists.pick(), lists.lists());
@@ -142,6 +146,7 @@ export function tasksScreen(app) {
       const sec = document.createElement('section'), h = document.createElement('h2'), ul = document.createElement('ul');
       sec.className = 'task-group'; h.className = 'task-group-title'; h.textContent = g.key ? dayLabel(g.key, today) : 'No date';
       ul.className = 'ui-list'; ul.setAttribute('aria-label', h.textContent);
+      ul.dataset.select = ''; ul.dataset.holdSelect = '';   // (a hold here selects in the whole tab's list: bulk.js)
       ul.replaceChildren(...g.tasks.map(t => row(t, today, changed.has(t.id), false)));
       sec.append(h, ul);
       return sec;
@@ -152,6 +157,7 @@ export function tasksScreen(app) {
     $('clear-done').hidden = !canWrite || done.length === 0;
     emptyOf.done.show(done.length === 0 && canWrite);
     lists.repaint();
+    ticks();
   };
   app.settings.watch('sort', () => draw(all, new Set()));
   // an app left open past midnight: the days (and what is overdue) move on when the page is seen again, and each minute

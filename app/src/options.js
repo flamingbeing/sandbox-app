@@ -11,7 +11,6 @@ export const SORTS = /** @type {[string, string][]} */ ([['due', 'By due time'],
 /** @type {Record<string, import('app-ui/settings/types').OptionSpec>} */
 export const OPTIONS = {
   // this device only: a phone and a computer can differ
-  bigRows: { scope: 'device', default: false },
   sort: { scope: 'device', default: 'due', clean: v => (SORTS.some(([k]) => k === v) ? v : 'due') },
   // the person's account: every device they sign in on
   showCounts: { scope: 'account', default: false },
@@ -31,10 +30,9 @@ const FEATURES = [
 /** The Settings pages (src/shell.js: @core/ui settingsScreen with its menu): a row is a switch for a yes/no option; icon,
  * sub and group are the page's row in the menu. */
 export const SETTING_SECTIONS = [
-  { title: 'Tasks', icon: ICONS.listChecks, sub: 'Order, counts and row size', group: 'Tasks', rows: [
+  { title: 'Tasks', icon: ICONS.listChecks, sub: 'Order and counts', group: 'Tasks', rows: [
     { key: 'sort', label: 'Order within a day', sub: 'This device', choices: SORTS },
     { key: 'showCounts', label: 'Show how many are open in each list', sub: 'Every device; sign in to change it' },
-    { key: 'bigRows', label: 'Larger rows', sub: 'This device' },
   ] },
   { title: 'Features', icon: ICONS.listChecks, sub: 'Switch optional parts on or off', group: 'Advanced', visible: () => FEATURES.length > 0, rows: FEATURES },
 ];

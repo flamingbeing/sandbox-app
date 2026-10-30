@@ -14,9 +14,9 @@
     "@core/auth": "https://core.anawj.com/sync/1.5.5/auth.js",
     "@core/sync": "https://core.anawj.com/sync/1.5.5/sync.js",
     "@core/update": "https://core.anawj.com/sync/1.5.5/update.js",
-    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.70/ui/index.js",
-    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.70/theme/index.js",
-    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.70/settings/index.js",
+    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.71/ui/index.js",
+    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.71/theme/index.js",
+    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.71/settings/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
@@ -26,14 +26,14 @@
   }
 }
   </script>
-  <script src="https://core.anawj.com/ui/1.0.0-rc.70/theme/early.js"></script>
+  <script src="https://core.anawj.com/ui/1.0.0-rc.71/theme/early.js"></script>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/app.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/auth.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/sync.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/sync/1.5.5/update.js" data-module>
-  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/index.js" data-module>
-  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.70/theme/index.js" data-module>
-  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.70/settings/index.js" data-module>
+  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.71/ui/index.js" data-module>
+  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.71/theme/index.js" data-module>
+  <link rel="modulepreload" href="https://core.anawj.com/ui/1.0.0-rc.71/settings/index.js" data-module>
   <link rel="modulepreload" href="https://core.anawj.com/update/0.2.0/register.js" data-module>
   <link rel="modulepreload" href="./vendor/firebase/12.19.0/firebase-app.js" data-module>
   <link rel="modulepreload" href="./vendor/firebase/12.19.0/firebase-auth.js" data-module>
@@ -43,11 +43,11 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/theme/theme.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/ui.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/theme/glass.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/gestures.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.70/ui/shell/shell.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.71/theme/theme.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.71/ui/ui.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.71/theme/glass.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.71/ui/gestures.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.71/ui/shell/shell.css">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="css/files.css" data-module>
   <script type="module" src="src/app.js"></script>
@@ -116,8 +116,8 @@
       <section class="ui-screen ui-tab-page" id="upcoming-page" aria-labelledby="upcoming-title" hidden>
         <h1 class="ui-large-title" id="upcoming-title">Upcoming</h1>
         <div class="list-picker" role="group" aria-label="Lists"></div>
-        <p class="page-tools"><button type="button" class="ui-primary" id="new-task" hidden>New task</button></p>
-        <div id="upcoming" class="task-groups"></div>
+        <p class="page-tools"><button type="button" class="ui-primary" id="new-task" hidden>New upcoming task</button></p>
+        <div id="upcoming" class="task-groups" role="group" aria-label="Upcoming"></div>
         <div id="upcoming-empty"></div>
       </section>
 
@@ -141,6 +141,41 @@
         <div id="settings-host"></div>
       </section>
     </main>
+
+    <!-- bulk edit (src/screens/bulk.js): a held task's menu (a mouse's right-click), the bar's menus, and each tab's bar -->
+    <template id="task-menu">
+      <button class="ui-menu-item" data-action="edit">Edit</button>
+      <button class="ui-menu-item" data-action="select">Select</button>
+    </template>
+    <template id="bulk-day-menu">
+      <button class="ui-menu-item" data-action="0">Today</button>
+      <button class="ui-menu-item" data-action="1">Tomorrow</button>
+      <button class="ui-menu-item" data-action="7">In a week</button>
+      <button class="ui-menu-item" data-action="none">No date</button>
+    </template>
+    <template id="bulk-list-menu"></template>
+    <div class="ui-action-bar bulk-bar" data-select-toolbar="#today" hidden>
+      <button type="button" data-bulk="cancel" aria-label="Stop selecting"></button>
+      <span data-select-count="#today">Select items</span>
+      <button type="button" data-bulk="done" data-needs="1">Done</button>
+      <button type="button" data-bulk="day" data-needs="1" data-hold-menu="#bulk-day-menu" aria-haspopup="menu">Day</button>
+      <button type="button" data-bulk="list" data-needs="1" data-hold-menu="#bulk-list-menu" aria-haspopup="menu">List</button>
+      <button type="button" data-bulk="delete" class="danger" data-needs="1">Delete</button>
+    </div>
+    <div class="ui-action-bar bulk-bar" data-select-toolbar="#upcoming" hidden>
+      <button type="button" data-bulk="cancel" aria-label="Stop selecting"></button>
+      <span data-select-count="#upcoming">Select items</span>
+      <button type="button" data-bulk="done" data-needs="1">Done</button>
+      <button type="button" data-bulk="day" data-needs="1" data-hold-menu="#bulk-day-menu" aria-haspopup="menu">Day</button>
+      <button type="button" data-bulk="list" data-needs="1" data-hold-menu="#bulk-list-menu" aria-haspopup="menu">List</button>
+      <button type="button" data-bulk="delete" class="danger" data-needs="1">Delete</button>
+    </div>
+    <div class="ui-action-bar bulk-bar" data-select-toolbar="#done" hidden>
+      <button type="button" data-bulk="cancel" aria-label="Stop selecting"></button>
+      <span data-select-count="#done">Select items</span>
+      <button type="button" data-bulk="undone" data-needs="1">Not done</button>
+      <button type="button" data-bulk="delete" class="danger" data-needs="1">Delete</button>
+    </div>
 
     <nav class="ui-tabbar" data-minimise aria-label="Sections">
       <button type="button" class="ui-tab" data-tab-page="#today-page" data-tab-id="today" aria-current="page"><span class="ui-tab-icon" aria-hidden="true">✓</span>Today</button>
